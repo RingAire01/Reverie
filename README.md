@@ -33,13 +33,8 @@ import paths are written from `src/`. Public API names carry a `reverie_`
 prefix; the ABI layer keeps the exact Win32 names because they must match the C
 symbols.
 
-Later milestones:
-
-| Milestone | Scope |
-| --- | --- |
-| M1 | WebView2 host via a thin C shim (WebView2Loader + COM) |
-| M2 | IPC bridge (JS <-> `.reo` commands) and an asset protocol |
-| M3 | Packaging, including the runtime DLLs |
+See [ROADMAP.md](ROADMAP.md) for the full milestone plan and the gap analysis
+(language prerequisites, runtime features, tooling, infrastructure).
 
 ## Scaffolding
 
