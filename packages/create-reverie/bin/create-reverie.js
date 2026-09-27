@@ -13,6 +13,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = resolve(HERE, "..");
 const TEMPLATES = join(PKG_ROOT, "templates");
 const RUNTIME = join(PKG_ROOT, "runtime");
+const SHIM = join(PKG_ROOT, "shim");
+const SCRIPTS = join(PKG_ROOT, "scripts");
 
 export const TEMPLATE_NAMES = readdirSync(TEMPLATES).filter(
   (name) => !name.startsWith("_") && statSync(join(TEMPLATES, name)).isDirectory(),
@@ -98,8 +100,17 @@ export function scaffold({ target, template, force }) {
   cpSync(templateDir, appDir, { recursive: true });
   applyNameRecursive(appDir, appName);
 
-  // RingEcho runtime.
+  // RingEcho runtime, C shim sources, and build scripts.
   cpSync(RUNTIME, join(appDir, "src-reverie"), { recursive: true });
+  if (existsSync(SHIM)) cpSync(SHIM, join(appDir, "shim"), { recursive: true });
+  if (existsSync(SCRIPTS)) {
+    const dest = join(appDir, "scripts");
+    mkdirSync(dest, { recursive: true });
+    for (const name of ["fetch-webview2.ps1", "build-app.ps1"]) {
+      const from = join(SCRIPTS, name);
+      if (existsSync(from)) cpSync(from, join(dest, name));
+    }
+  }
 
   return { appDir, appName, template };
 }

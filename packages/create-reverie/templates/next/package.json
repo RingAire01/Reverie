@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "reverie:dev": "rev run src-reverie/main.reo"
+    "reverie:shim": "powershell -File shim/build.ps1",
+    "reverie:build": "powershell -File scripts/build-app.ps1",
+    "reverie:dev": "powershell -File scripts/build-app.ps1 && start app.exe"
   },
   "dependencies": {
     "next": "^15.0.0",

@@ -13,7 +13,7 @@ Legend: ✅ done · 🚧 in progress · ⛔ blocked · ⬜ not started
 | M0 | Win32 window + message loop, `WNDPROC` written in `.reo` | ✅ |
 | M1 | WebView2 host via a thin C shim (WebView2Loader + COM) | ✅ |
 | M2 | IPC bridge (JS ↔ `.reo`) and an asset protocol | ✅ |
-| M3 | Packaging, including the runtime DLLs | ⬜ |
+| M3 | Build pipeline + runtime DLL bundling (installers later) | ✅ |
 | M4 | macOS (WKWebView) and Linux (WebKitGTK) backends | ⬜ |
 | M5 | Ecosystem: `reverie` CLI, permissions, updater, signing | ⬜ |
 

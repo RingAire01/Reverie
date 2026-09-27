@@ -58,6 +58,18 @@ pnpm create @ringaire/reverie my-app --template react
 # templates: vanilla, react, vue, next
 ```
 
+Each generated app is self-contained: it ships the RingEcho runtime
+(`src-reverie/`), the C shim (`shim/`) and the build scripts (`scripts/`).
+
+```sh
+pnpm install
+pnpm reverie:build   # shim + native binary + runtime DLLs
+pnpm reverie:dev     # build, then launch app.exe
+```
+
+`reverie:build` needs `rev` and a Windows C toolchain on `PATH`; the WebView2
+SDK is fetched into `shim/webview2/` on first run.
+
 ## Build and run
 
 Requires the `rev` compiler and a Windows C toolchain on `PATH` (for example

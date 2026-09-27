@@ -64,7 +64,8 @@ Runtime features, roughly in dependency order:
 - [ ] Multiple windows, DPI, transparency, fullscreen, decorations
 - [ ] Menus, tray, native dialogs (open/save)
 - [ ] Dev-server integration and HMR
-- [ ] Bundling: installers, resource embedding, runtime DLLs
+- [x] Bundling: one-command build (`scripts/build-app.ps1`) with runtime DLLs
+- [ ] Installers and resource embedding
 - [ ] Auto-update and code signing
 - [ ] Logging / telemetry
 - [ ] macOS and Linux backends
