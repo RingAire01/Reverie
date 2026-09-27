@@ -8,6 +8,7 @@
  */
 #include <windows.h>
 #include <commdlg.h>
+#include <shellapi.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -402,6 +403,32 @@ const char *reverie_webview_poll(void) {
 
 void reverie_webview_on_message(void (*handler)(const char *message)) {
     g_message_handler = handler;
+}
+
+static NOTIFYICONDATAW g_tray;
+static int g_tray_active = 0;
+
+int reverie_tray_add(void *hwnd, const char *tooltip) {
+    memset(&g_tray, 0, sizeof(g_tray));
+    g_tray.cbSize = sizeof(g_tray);
+    g_tray.hWnd = (HWND)hwnd;
+    g_tray.uID = 1;
+    g_tray.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
+    g_tray.uCallbackMessage = WM_APP + 1;
+    g_tray.hIcon = LoadIconW(NULL, MAKEINTRESOURCEW(32512)); /* IDI_APPLICATION */
+    utf8_to_wide(tooltip ? tooltip : "Reverie", g_tray.szTip, 128);
+    if (!Shell_NotifyIconW(NIM_ADD, &g_tray)) {
+        set_error("Shell_NotifyIcon failed");
+        return 0;
+    }
+    g_tray_active = 1;
+    return 1;
+}
+
+void reverie_tray_remove(void) {
+    if (!g_tray_active) return;
+    Shell_NotifyIconW(NIM_DELETE, &g_tray);
+    g_tray_active = 0;
 }
 
 void reverie_log_write(const char *message) {

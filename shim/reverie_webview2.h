@@ -40,6 +40,11 @@ void reverie_win_init(void);
 /* Append a timestamped line to reverie.log next to the executable. */
 void reverie_log_write(const char *message);
 
+/* System tray icon. Returns 1 on success. Tray events arrive at `hwnd` as
+ * WM_APP+1 (wparam = mouse message, lparam = the icon's uID). */
+int reverie_tray_add(void *hwnd, const char *tooltip);
+void reverie_tray_remove(void);
+
 /* Native open/save dialogs. `pattern` is a glob such as "*.txt"; an "All files"
  * option is always added. Return the chosen path (UTF-8) or "" if cancelled.
  * These block until the user responds. */

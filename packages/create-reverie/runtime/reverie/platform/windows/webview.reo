@@ -13,6 +13,8 @@ extern {
     fn reverie_log_write(message: str);
     fn reverie_dialog_open(pattern: str) -> str;
     fn reverie_dialog_save(pattern: str) -> str;
+    fn reverie_tray_add(hwnd: u64, tooltip: str) -> i32;
+    fn reverie_tray_remove();
     fn reverie_webview_start(hwnd: u64, url: str) -> i32;
     fn reverie_webview_state() -> i32;
     fn reverie_webview_stop();
@@ -44,6 +46,15 @@ fn reverie_open_file(pattern: str) -> str {
 
 fn reverie_save_file(pattern: str) -> str {
     return reverie_dialog_save(pattern);
+}
+
+// System tray icon. Tray events arrive at the window as WM_APP+1.
+fn reverie_tray_show(hwnd: u64, tooltip: str) -> i32 {
+    return reverie_tray_add(hwnd, tooltip);
+}
+
+fn reverie_tray_hide() {
+    reverie_tray_remove();
 }
 
 // Host `url` inside `hwnd`. Returns 0 once the request is dispatched; the
