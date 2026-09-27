@@ -1,0 +1,35 @@
+// Reverie ABI - C-layout structs mirroring their Win32 counterparts.
+//
+// RingEcho emits these declarations verbatim, so the C compiler computes the
+// same field offsets as <windows.h>. Only the field order and scalar widths
+// matter; pointer-sized handles are modelled as u64.
+
+struct WndClassA {
+    style: u32,
+    wndproc: fn(u64, u32, u64, u64) -> u64,
+    cls_extra: i32,
+    wnd_extra: i32,
+    instance: u64,
+    icon: u64,
+    cursor: u64,
+    background: u64,
+    menu_name: str,
+    class_name: str,
+}
+
+struct Msg {
+    hwnd: u64,
+    message: u32,
+    wparam: u64,
+    lparam: u64,
+    time: u32,
+    pt_x: i32,
+    pt_y: i32,
+}
+
+struct Rect {
+    left: i32,
+    top: i32,
+    right: i32,
+    bottom: i32,
+}

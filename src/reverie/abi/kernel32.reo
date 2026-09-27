@@ -1,0 +1,6 @@
+// Reverie ABI - kernel32 bindings.
+
+extern {
+    fn GetModuleHandleA(name: u64) -> u64;
+    fn Sleep(ms: u32);
+}

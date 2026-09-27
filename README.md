@@ -10,8 +10,28 @@ runtime orchestration on top of the platform's C ABI.
 
 Milestone **M0**: a Win32 window plus a message loop, driven from `.reo`.
 
-- Source: [`src/main.reo`](src/main.reo) (demo) and [`src/win32.reo`](src/win32.reo) (bindings).
 - Platform: Windows only, C backend (`rev build` / `rev run`).
+
+## Layout
+
+```
+src/
+  reverie.reo              public facade (import this)
+  reverie/
+    abi/structs.reo        C-layout structs (WndClassA, Msg, Rect)
+    abi/user32.reo         user32 externs
+    abi/kernel32.reo       kernel32 externs
+    messages.reo           WM_* identifiers
+    window.reo             class registration, creation, default procedure
+    loop.reo               message loop
+  main.reo                 M0 demo, uses only the facade
+```
+
+RingEcho has no namespaces: every imported declaration lands in one global
+scope. Imports resolve relative to the **entry file's** directory, so all
+import paths are written from `src/`. Public API names carry a `reverie_`
+prefix; the ABI layer keeps the exact Win32 names because they must match the C
+symbols.
 
 Later milestones:
 
