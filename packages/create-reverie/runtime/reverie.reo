@@ -1,7 +1,19 @@
 // Reverie - public facade.
 //
 // Consumers import this single module. It pulls in the selected platform
-// backend (see reverie/platform.reo), which provides the whole runtime:
-// windowing, the message loop, and the web engine.
+// backend (see reverie/platform.reo), which provides the runtime, and the
+// generated configuration (reverie/config.reo).
 
 import "reverie/platform"
+import "reverie/config"
+
+// Create the main window from configuration, apply the security policy, and
+// load the configured frontend host.
+fn reverie_launch() -> u64 {
+    reverie_cfg_apply_security();
+    let hwnd: u64 = reverie_create_window("ReverieWindow", reverie_cfg_title(),
+        reverie_cfg_width(), reverie_cfg_height(), reverie_default_proc);
+    reverie_asset_folder(reverie_cfg_asset_host(), reverie_cfg_asset_folder());
+    reverie_webview_open(hwnd, "https://" + reverie_cfg_asset_host() + "/index.html");
+    return hwnd;
+}

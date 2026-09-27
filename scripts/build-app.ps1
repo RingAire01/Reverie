@@ -42,11 +42,15 @@ if (-not (Test-Path (Join-Path $shim 'webview2/include/WebView2.h'))) {
 # 2. C shim static library.
 & (Join-Path $shim 'build.ps1') -CC $CC -Ar $Ar
 
-# 3. Native binary (RingEcho runtime).
+# 3. Generated configuration.
+$genConfig = Join-Path $here 'gen-config.ps1'
+if (Test-Path $genConfig) { & $genConfig }
+
+# 4. Native binary (RingEcho runtime).
 & $Rev build (Join-Path $srcReve 'main.reo') --lib-dir (Join-Path $shim 'build') --link reverie_webview2 --link ole32 -o (Join-Path $outDir "$Name.exe")
 if ($LASTEXITCODE -ne 0) { throw 'rev build failed' }
 
-# 4. Runtime DLLs next to the executable.
+# 5. Runtime DLLs next to the executable.
 Copy-Item -LiteralPath (Join-Path $shim 'webview2/x64/WebView2Loader.dll') -Destination (Join-Path $outDir 'WebView2Loader.dll') -Force
 $ccDir = Split-Path -Parent (Get-Command $CC).Source
 $winpthread = Join-Path $ccDir 'libwinpthread-1.dll'

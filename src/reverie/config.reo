@@ -1,0 +1,15 @@
+// Default configuration.
+//
+// scripts/gen-config.ps1 overwrites this file from reverie.conf at build time,
+// so applications read all settings through these accessors and never hardcode
+// window or security values.
+
+fn reverie_cfg_title() -> str { return "Reverie App"; }
+fn reverie_cfg_width() -> i32 { return 900; }
+fn reverie_cfg_height() -> i32 { return 600; }
+fn reverie_cfg_asset_host() -> str { return "reverie.local"; }
+fn reverie_cfg_asset_folder() -> str { return "dist"; }
+
+fn reverie_cfg_apply_security() {
+    reverie_allow_host("reverie.local");
+}

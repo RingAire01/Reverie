@@ -30,7 +30,7 @@ console.log(`synced shim -> ${shimDest}`);
 // Build scripts.
 const scriptsDest = join(PKG_ROOT, "scripts");
 mkdirSync(scriptsDest, { recursive: true });
-for (const name of ["fetch-webview2.ps1", "build-app.ps1"]) {
+for (const name of ["fetch-webview2.ps1", "build-app.ps1", "gen-config.ps1"]) {
     const source = join(REPO_ROOT, "scripts", name);
     if (existsSync(source)) copyFileSync(source, join(scriptsDest, name));
 }
