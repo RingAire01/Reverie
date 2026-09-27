@@ -75,7 +75,7 @@ confirmed by experiment against `rev v0.2.0` on Windows 11.
 The smallest set that makes Reverie genuinely useful:
 
 1. ~~**M1** WebView2 host~~ ✅
-2. ~~IPC bridge (poll-based; closures would enable push callbacks later)~~ ✅
+2. ~~IPC bridge: `reverie_send` + push `reverie_on_message` (a `.reo` fn pointer called by the shim)~~ ✅
 3. ~~Asset protocol (virtual host mapping)~~ ✅
 4. Dev-server integration (Vite / Next)
 5. Packaging that bundles the runtime DLLs
@@ -96,7 +96,8 @@ Verified on Windows 11:
   `https://reverie.local/index.html` from a Vite build, no dev server);
 - `reverie_poll()` receives a page `postMessage`, and `reverie_send()` replies.
 
-Still missing for a usable, shippable runtime: IPC is poll-based (no push
-callbacks without capturing closures), menu/tray/dialogs, permissions, config,
-dev-server integration, and packaging must bundle `WebView2Loader.dll` (and
-`libwinpthread-1.dll`, or link statically).
+IPC push works through a single handler (the shim holds a `.reo` function
+pointer); per-window or multiple handlers need capturing closures. Still missing
+for Tauri parity: command dispatcher, security (allowlist + CSP), config,
+menus/tray/dialogs, dev-server integration, installers, and macOS/Linux
+backends — see [PARITY.md](PARITY.md).

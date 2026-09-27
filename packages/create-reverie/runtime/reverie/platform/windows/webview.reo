@@ -16,6 +16,7 @@ extern {
     fn reverie_webview_set_folder(host: str, dir: str) -> i32;
     fn reverie_webview_send(message: str) -> i32;
     fn reverie_webview_poll() -> str;
+    fn reverie_webview_on_message(handler: fn(str));
 }
 
 // Host `url` inside `hwnd`. Returns 0 once the request is dispatched; the
@@ -51,4 +52,9 @@ fn reverie_send(message: str) -> i32 {
 // Next message the page posted, or "" when none.
 fn reverie_poll() -> str {
     return reverie_webview_poll();
+}
+
+// Push: register a handler called for each message the page posts.
+fn reverie_on_message(handler: fn(str)) {
+    reverie_webview_on_message(handler);
 }

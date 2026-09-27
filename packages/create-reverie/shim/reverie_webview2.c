@@ -29,6 +29,7 @@ static int  g_state = 0;
 static char g_message[4096];
 static int  g_has_message = 0;
 static EventRegistrationToken g_message_token;
+static void (*g_message_handler)(const char *) = NULL;
 static char g_pending_host[256];
 static char g_pending_dir[1024];
 static int  g_has_pending_folder = 0;
@@ -113,6 +114,7 @@ static HRESULT STDMETHODCALLTYPE msg_invoke(ICoreWebView2WebMessageReceivedEvent
         WideCharToMultiByte(CP_UTF8, 0, text, -1, g_message, (int)sizeof(g_message), NULL, NULL);
         g_has_message = 1;
         CoTaskMemFree(text);
+        if (g_message_handler) g_message_handler(g_message);
     }
     return S_OK;
 }
@@ -281,6 +283,10 @@ const char *reverie_webview_poll(void) {
     if (!g_has_message) return "";
     g_has_message = 0;
     return g_message;
+}
+
+void reverie_webview_on_message(void (*handler)(const char *message)) {
+    g_message_handler = handler;
 }
 
 void reverie_webview_stop(void) {

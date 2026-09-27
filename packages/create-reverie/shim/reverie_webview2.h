@@ -28,6 +28,11 @@ int reverie_webview_set_folder(const char *host, const char *dir);
 /* Send a UTF-8 message to the page (window.chrome.webview "message" event). */
 int reverie_webview_send(const char *message);
 
+/* Register a push handler invoked with each message the page posts. Pass NULL
+ * to clear. The handler runs on the UI thread. The memory is owned by the shim
+ * and valid only for the duration of the call. */
+void reverie_webview_on_message(void (*handler)(const char *message));
+
 /* Next message posted by the page, or "" when none. The returned pointer is
  * owned by the shim and valid until the next call. */
 const char *reverie_webview_poll(void);
