@@ -1,10 +1,9 @@
 /* Reverie WebView2 shim - see reverie_webview2.h.
  *
- * WebView2 is COM. The shim owns the COM handlers and the asynchronous
- * environment/controller creation, and exposes a tiny blocking-free C API so a
- * RingEcho program can host a browser without touching COM directly. The loader
- * entry point is resolved dynamically from WebView2Loader.dll, so the shim has
- * no link-time dependency on the WebView2 SDK.
+ * Multi-window: each top-level HWND owns one WebView2. The control API is keyed
+ * by HWND; command/message handlers stay app-global, and
+ * reverie_webview_message_window() reports the window a dispatched message came
+ * from so the app can reply to the right one.
  */
 #include <windows.h>
 #include <commdlg.h>
@@ -16,62 +15,60 @@
 #include "WebView2.h"
 #include "reverie_webview2.h"
 
-typedef HRESULT (STDAPICALLTYPE *PFN_CreateEnv)(
-    PCWSTR browserExecutableFolder,
-    PCWSTR userDataFolder,
-    ICoreWebView2EnvironmentOptions *environmentOptions,
-    ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *environmentCreatedHandler);
-
-static ICoreWebView2Environment *g_env = NULL;
-static ICoreWebView2Controller  *g_controller = NULL;
-static ICoreWebView2           *g_webview = NULL;
-static HWND g_hwnd = NULL;
-static char g_url[2048];
-static char g_error[256];
-static int  g_state = 0;
-static char g_message[4096];
-static int  g_has_message = 0;
-static EventRegistrationToken g_message_token;
-static void (*g_message_handler)(const char *) = NULL;
-static char g_allowed_hosts[8][256];
-static int  g_allowed_host_count = 0;
-static char g_last_blocked[2048];
-
-static int host_allowed(const char *uri);
-static void set_error(const char *message);
-
+#define REVERIE_MAX_WINDOWS 8
 #define REVERIE_MAX_COMMANDS 32
-static struct {
-    char name[64];
-    void (*handler)(const char *arg);
-} g_commands[REVERIE_MAX_COMMANDS];
+
+typedef struct {
+    HWND hwnd;
+    int index;
+    int used;
+
+    ICoreWebView2Environment *env;
+    ICoreWebView2Controller *controller;
+    ICoreWebView2 *webview;
+    int state;
+
+    char initial_url[2048];
+    int has_pending_folder;
+    char pending_host[256];
+    char pending_dir[1024];
+
+    char message[4096];
+    int has_message;
+
+    EventRegistrationToken msg_token;
+    EventRegistrationToken nav_token;
+
+    /* Per-window handler instances: vtable first, then a back-pointer. */
+    struct { ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandlerVtbl *lpVtbl; void *owner; } env_handler;
+    struct { ICoreWebView2CreateCoreWebView2ControllerCompletedHandlerVtbl *lpVtbl; void *owner; } ctrl_handler;
+    struct { ICoreWebView2WebMessageReceivedEventHandlerVtbl *lpVtbl; void *owner; } msg_handler;
+    struct { ICoreWebView2NavigationStartingEventHandlerVtbl *lpVtbl; void *owner; } nav_handler;
+} ReverieWindow;
+
+typedef struct { ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandlerVtbl *lpVtbl; void *owner; } EnvHandler;
+typedef struct { ICoreWebView2CreateCoreWebView2ControllerCompletedHandlerVtbl *lpVtbl; void *owner; } CtrlHandler;
+typedef struct { ICoreWebView2WebMessageReceivedEventHandlerVtbl *lpVtbl; void *owner; } MsgHandler;
+typedef struct { ICoreWebView2NavigationStartingEventHandlerVtbl *lpVtbl; void *owner; } NavHandler;
+
+static ReverieWindow g_windows[REVERIE_MAX_WINDOWS];
+static char g_error[256];
+static char g_last_blocked[2048];
+static char g_dialog_path[1024];
+static void (*g_message_handler)(const char *) = NULL;
+static HWND g_message_window = NULL;
+
+static char g_allowed_hosts[8][256];
+static int g_allowed_host_count = 0;
+
+typedef struct { char name[64]; void (*handler)(const char *arg); } ReverieCommand;
+static ReverieCommand g_commands[REVERIE_MAX_COMMANDS];
 static int g_command_count = 0;
 
-static void dispatch_command(const char *message) {
-    char name[64];
-    const char *colon = strchr(message, ':');
-    size_t n = colon ? (size_t)(colon - message) : strlen(message);
-    if (n >= sizeof(name)) n = sizeof(name) - 1;
-    memcpy(name, message, n);
-    name[n] = '\0';
-    const char *arg = colon ? colon + 1 : "";
-    for (int i = 0; i < g_command_count; i++) {
-        if (strcmp(g_commands[i].name, name) == 0) {
-            g_commands[i].handler(arg);
-            return;
-        }
-    }
-    set_error("unknown command");
-}
-static char g_pending_host[256];
-static char g_pending_dir[1024];
-static int  g_has_pending_folder = 0;
+static NOTIFYICONDATAW g_tray;
+static int g_tray_active = 0;
 
-static int apply_folder(const char *host, const char *dir);
-
-static void set_error(const char *message) {
-    snprintf(g_error, sizeof(g_error), "%s", message ? message : "unknown error");
-}
+static int apply_folder(ReverieWindow *w, const char *host, const char *dir);
 
 static void utf8_to_wide(const char *in, wchar_t *out, size_t cap) {
     if (!out || cap == 0) return;
@@ -79,85 +76,32 @@ static void utf8_to_wide(const char *in, wchar_t *out, size_t cap) {
     if (MultiByteToWideChar(CP_UTF8, 0, in, -1, out, (int)cap) == 0) out[0] = 0;
 }
 
-/* ---- environment creation handler ---- */
+static void set_error(const char *message) {
+    snprintf(g_error, sizeof(g_error), "%s", message ? message : "unknown error");
+}
 
-static HRESULT STDMETHODCALLTYPE env_qi(ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *This,
-                                        REFIID riid, void **ppv) {
-    (void)riid;
-    if (!ppv) return E_POINTER;
-    *ppv = This;
-    return S_OK;
+static ReverieWindow *find_window(HWND hwnd) {
+    for (int i = 0; i < REVERIE_MAX_WINDOWS; i++)
+        if (g_windows[i].used && g_windows[i].hwnd == hwnd) return &g_windows[i];
+    return NULL;
 }
-static ULONG STDMETHODCALLTYPE env_addref(ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *This) {
-    (void)This; return 1;
-}
-static ULONG STDMETHODCALLTYPE env_release(ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *This) {
-    (void)This; return 1;
-}
-static HRESULT STDMETHODCALLTYPE env_invoke(ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *This,
-                                            HRESULT errorCode, ICoreWebView2Environment *environment);
-static ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandlerVtbl g_env_vtbl = {
-    env_qi, env_addref, env_release, env_invoke
-};
-static struct { ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandlerVtbl *lpVtbl; } g_env_handler;
 
-/* ---- controller creation handler ---- */
-
-static HRESULT STDMETHODCALLTYPE ctrl_qi(ICoreWebView2CreateCoreWebView2ControllerCompletedHandler *This,
-                                         REFIID riid, void **ppv) {
-    (void)riid;
-    if (!ppv) return E_POINTER;
-    *ppv = This;
-    return S_OK;
-}
-static ULONG STDMETHODCALLTYPE ctrl_addref(ICoreWebView2CreateCoreWebView2ControllerCompletedHandler *This) {
-    (void)This; return 1;
-}
-static ULONG STDMETHODCALLTYPE ctrl_release(ICoreWebView2CreateCoreWebView2ControllerCompletedHandler *This) {
-    (void)This; return 1;
-}
-static HRESULT STDMETHODCALLTYPE ctrl_invoke(ICoreWebView2CreateCoreWebView2ControllerCompletedHandler *This,
-                                             HRESULT errorCode, ICoreWebView2Controller *controller);
-static ICoreWebView2CreateCoreWebView2ControllerCompletedHandlerVtbl g_ctrl_vtbl = {
-    ctrl_qi, ctrl_addref, ctrl_release, ctrl_invoke
-};
-static struct { ICoreWebView2CreateCoreWebView2ControllerCompletedHandlerVtbl *lpVtbl; } g_ctrl_handler;
-
-/* ---- WebMessageReceived handler ---- */
-
-static HRESULT STDMETHODCALLTYPE msg_qi(ICoreWebView2WebMessageReceivedEventHandler *This,
-                                        REFIID riid, void **ppv) {
-    (void)riid;
-    if (!ppv) return E_POINTER;
-    *ppv = This;
-    return S_OK;
-}
-static ULONG STDMETHODCALLTYPE msg_addref(ICoreWebView2WebMessageReceivedEventHandler *This) {
-    (void)This; return 1;
-}
-static ULONG STDMETHODCALLTYPE msg_release(ICoreWebView2WebMessageReceivedEventHandler *This) {
-    (void)This; return 1;
-}
-static HRESULT STDMETHODCALLTYPE msg_invoke(ICoreWebView2WebMessageReceivedEventHandler *This,
-                                            ICoreWebView2 *sender,
-                                            ICoreWebView2WebMessageReceivedEventArgs *args) {
-    (void)This; (void)sender;
-    LPWSTR text = NULL;
-    if (args && SUCCEEDED(args->lpVtbl->TryGetWebMessageAsString(args, &text)) && text) {
-        WideCharToMultiByte(CP_UTF8, 0, text, -1, g_message, (int)sizeof(g_message), NULL, NULL);
-        g_has_message = 1;
-        CoTaskMemFree(text);
-        if (g_command_count > 0) dispatch_command(g_message);
-        else if (g_message_handler) g_message_handler(g_message);
+static ReverieWindow *alloc_window(HWND hwnd) {
+    ReverieWindow *existing = find_window(hwnd);
+    if (existing) return existing;
+    for (int i = 0; i < REVERIE_MAX_WINDOWS; i++) {
+        if (!g_windows[i].used) {
+            memset(&g_windows[i], 0, sizeof(g_windows[i]));
+            g_windows[i].used = 1;
+            g_windows[i].hwnd = hwnd;
+            g_windows[i].index = i;
+            return &g_windows[i];
+        }
     }
-    return S_OK;
+    return NULL;
 }
-static ICoreWebView2WebMessageReceivedEventHandlerVtbl g_msg_vtbl = {
-    msg_qi, msg_addref, msg_release, msg_invoke
-};
-static struct { ICoreWebView2WebMessageReceivedEventHandlerVtbl *lpVtbl; } g_msg_handler;
 
-/* ---- navigation policy ---- */
+/* ---- navigation policy (global) ---- */
 
 static int ci_equal_n(const char *a, const char *b, size_t n) {
     for (size_t i = 0; i < n; i++) {
@@ -178,7 +122,6 @@ static void ensure_default_hosts(void) {
 
 static int host_allowed(const char *uri) {
     if (!uri) return 0;
-    /* Scheme-only URIs (data:, about:, blob:) carry no network origin. */
     const char *scheme = strstr(uri, "://");
     if (!scheme) return 1;
     const char *host = scheme + 3;
@@ -195,24 +138,142 @@ static int host_allowed(const char *uri) {
     return 0;
 }
 
-/* ---- NavigationStarting handler ---- */
+/* ---- command registry (global) ---- */
 
-static HRESULT STDMETHODCALLTYPE nav_qi(ICoreWebView2NavigationStartingEventHandler *This,
-                                        REFIID riid, void **ppv) {
-    (void)riid;
-    if (!ppv) return E_POINTER;
-    *ppv = This;
+static void dispatch_command(HWND hwnd, const char *message) {
+    char name[64];
+    const char *colon = strchr(message, ':');
+    size_t n = colon ? (size_t)(colon - message) : strlen(message);
+    if (n >= sizeof(name)) n = sizeof(name) - 1;
+    memcpy(name, message, n);
+    name[n] = '\0';
+    const char *arg = colon ? colon + 1 : "";
+    for (int i = 0; i < g_command_count; i++) {
+        if (strcmp(g_commands[i].name, name) == 0) {
+            g_message_window = hwnd;
+            g_commands[i].handler(arg);
+            return;
+        }
+    }
+    set_error("unknown command");
+}
+
+/* ---- COM handlers ---- */
+
+static HRESULT STDMETHODCALLTYPE env_qi(ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *This, REFIID riid, void **ppv) {
+    (void)riid; if (!ppv) return E_POINTER; *ppv = This; return S_OK;
+}
+static ULONG STDMETHODCALLTYPE env_addref(ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *This) { (void)This; return 1; }
+static ULONG STDMETHODCALLTYPE env_release(ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *This) { (void)This; return 1; }
+static HRESULT STDMETHODCALLTYPE env_invoke(ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *This, HRESULT errorCode, ICoreWebView2Environment *environment);
+static ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandlerVtbl g_env_vtbl = { env_qi, env_addref, env_release, env_invoke };
+
+static HRESULT STDMETHODCALLTYPE ctrl_qi(ICoreWebView2CreateCoreWebView2ControllerCompletedHandler *This, REFIID riid, void **ppv) {
+    (void)riid; if (!ppv) return E_POINTER; *ppv = This; return S_OK;
+}
+static ULONG STDMETHODCALLTYPE ctrl_addref(ICoreWebView2CreateCoreWebView2ControllerCompletedHandler *This) { (void)This; return 1; }
+static ULONG STDMETHODCALLTYPE ctrl_release(ICoreWebView2CreateCoreWebView2ControllerCompletedHandler *This) { (void)This; return 1; }
+static HRESULT STDMETHODCALLTYPE ctrl_invoke(ICoreWebView2CreateCoreWebView2ControllerCompletedHandler *This, HRESULT errorCode, ICoreWebView2Controller *controller);
+static ICoreWebView2CreateCoreWebView2ControllerCompletedHandlerVtbl g_ctrl_vtbl = { ctrl_qi, ctrl_addref, ctrl_release, ctrl_invoke };
+
+static HRESULT STDMETHODCALLTYPE msg_qi(ICoreWebView2WebMessageReceivedEventHandler *This, REFIID riid, void **ppv) {
+    (void)riid; if (!ppv) return E_POINTER; *ppv = This; return S_OK;
+}
+static ULONG STDMETHODCALLTYPE msg_addref(ICoreWebView2WebMessageReceivedEventHandler *This) { (void)This; return 1; }
+static ULONG STDMETHODCALLTYPE msg_release(ICoreWebView2WebMessageReceivedEventHandler *This) { (void)This; return 1; }
+static HRESULT STDMETHODCALLTYPE msg_invoke(ICoreWebView2WebMessageReceivedEventHandler *This, ICoreWebView2 *sender, ICoreWebView2WebMessageReceivedEventArgs *args);
+static ICoreWebView2WebMessageReceivedEventHandlerVtbl g_msg_vtbl = { msg_qi, msg_addref, msg_release, msg_invoke };
+
+static HRESULT STDMETHODCALLTYPE nav_qi(ICoreWebView2NavigationStartingEventHandler *This, REFIID riid, void **ppv) {
+    (void)riid; if (!ppv) return E_POINTER; *ppv = This; return S_OK;
+}
+static ULONG STDMETHODCALLTYPE nav_addref(ICoreWebView2NavigationStartingEventHandler *This) { (void)This; return 1; }
+static ULONG STDMETHODCALLTYPE nav_release(ICoreWebView2NavigationStartingEventHandler *This) { (void)This; return 1; }
+static HRESULT STDMETHODCALLTYPE nav_invoke(ICoreWebView2NavigationStartingEventHandler *This, ICoreWebView2 *sender, ICoreWebView2NavigationStartingEventArgs *args);
+static ICoreWebView2NavigationStartingEventHandlerVtbl g_nav_vtbl = { nav_qi, nav_addref, nav_release, nav_invoke };
+
+static HRESULT STDMETHODCALLTYPE env_invoke(ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *This, HRESULT errorCode, ICoreWebView2Environment *environment) {
+    ReverieWindow *w = (ReverieWindow *)((EnvHandler *)This)->owner;
+    if (FAILED(errorCode) || !environment) {
+        set_error("WebView2 environment creation failed (is the WebView2 Runtime installed?)");
+        w->state = -10;
+        return S_OK;
+    }
+    w->env = environment;
+    w->env->lpVtbl->AddRef(w->env);
+    w->state = 1;
+
+    w->ctrl_handler.lpVtbl = &g_ctrl_vtbl;
+    w->ctrl_handler.owner = w;
+    HRESULT hr = w->env->lpVtbl->CreateCoreWebView2Controller(
+        w->env, w->hwnd, (ICoreWebView2CreateCoreWebView2ControllerCompletedHandler *)&w->ctrl_handler);
+    if (FAILED(hr)) { set_error("CreateCoreWebView2Controller failed"); w->state = -11; }
     return S_OK;
 }
-static ULONG STDMETHODCALLTYPE nav_addref(ICoreWebView2NavigationStartingEventHandler *This) {
-    (void)This; return 1;
+
+static HRESULT STDMETHODCALLTYPE ctrl_invoke(ICoreWebView2CreateCoreWebView2ControllerCompletedHandler *This, HRESULT errorCode, ICoreWebView2Controller *controller) {
+    ReverieWindow *w = (ReverieWindow *)((CtrlHandler *)This)->owner;
+    if (FAILED(errorCode) || !controller) {
+        set_error("WebView2 controller creation failed");
+        w->state = -20;
+        return S_OK;
+    }
+    w->controller = controller;
+    w->controller->lpVtbl->AddRef(w->controller);
+    w->state = 2;
+
+    ICoreWebView2 *webview = NULL;
+    HRESULT hr = w->controller->lpVtbl->get_CoreWebView2(w->controller, &webview);
+    if (FAILED(hr) || !webview) { set_error("get_CoreWebView2 failed"); w->state = -21; return S_OK; }
+    w->webview = webview;
+
+    w->msg_handler.lpVtbl = &g_msg_vtbl;
+    w->msg_handler.owner = w;
+    w->webview->lpVtbl->add_WebMessageReceived(
+        w->webview, (ICoreWebView2WebMessageReceivedEventHandler *)&w->msg_handler, &w->msg_token);
+
+    w->nav_handler.lpVtbl = &g_nav_vtbl;
+    w->nav_handler.owner = w;
+    w->webview->lpVtbl->add_NavigationStarting(
+        w->webview, (ICoreWebView2NavigationStartingEventHandler *)&w->nav_handler, &w->nav_token);
+
+    RECT bounds;
+    GetClientRect(w->hwnd, &bounds);
+    w->controller->lpVtbl->put_Bounds(w->controller, bounds);
+
+    if (w->has_pending_folder) {
+        (void)apply_folder(w, w->pending_host, w->pending_dir);
+        w->has_pending_folder = 0;
+    }
+
+    if (w->initial_url[0]) {
+        wchar_t wide[2048];
+        utf8_to_wide(w->initial_url, wide, 2048);
+        if (FAILED(w->webview->lpVtbl->Navigate(w->webview, wide))) {
+            set_error("Navigate failed");
+            w->state = -22;
+            return S_OK;
+        }
+    }
+    w->state = 3;
+    return S_OK;
 }
-static ULONG STDMETHODCALLTYPE nav_release(ICoreWebView2NavigationStartingEventHandler *This) {
-    (void)This; return 1;
+
+static HRESULT STDMETHODCALLTYPE msg_invoke(ICoreWebView2WebMessageReceivedEventHandler *This, ICoreWebView2 *sender, ICoreWebView2WebMessageReceivedEventArgs *args) {
+    ReverieWindow *w = (ReverieWindow *)((MsgHandler *)This)->owner;
+    (void)sender;
+    LPWSTR text = NULL;
+    if (args && SUCCEEDED(args->lpVtbl->TryGetWebMessageAsString(args, &text)) && text) {
+        WideCharToMultiByte(CP_UTF8, 0, text, -1, w->message, (int)sizeof(w->message), NULL, NULL);
+        w->has_message = 1;
+        CoTaskMemFree(text);
+        if (g_command_count > 0) dispatch_command(w->hwnd, w->message);
+        else if (g_message_handler) { g_message_window = w->hwnd; g_message_handler(w->message); }
+    }
+    return S_OK;
 }
-static HRESULT STDMETHODCALLTYPE nav_invoke(ICoreWebView2NavigationStartingEventHandler *This,
-                                            ICoreWebView2 *sender,
-                                            ICoreWebView2NavigationStartingEventArgs *args) {
+
+static HRESULT STDMETHODCALLTYPE nav_invoke(ICoreWebView2NavigationStartingEventHandler *This, ICoreWebView2 *sender, ICoreWebView2NavigationStartingEventArgs *args) {
     (void)This; (void)sender;
     LPWSTR uri = NULL;
     if (args && SUCCEEDED(args->lpVtbl->get_Uri(args, &uri)) && uri) {
@@ -226,147 +287,13 @@ static HRESULT STDMETHODCALLTYPE nav_invoke(ICoreWebView2NavigationStartingEvent
     }
     return S_OK;
 }
-static ICoreWebView2NavigationStartingEventHandlerVtbl g_nav_vtbl = {
-    nav_qi, nav_addref, nav_release, nav_invoke
-};
-static struct { ICoreWebView2NavigationStartingEventHandlerVtbl *lpVtbl; } g_nav_handler;
-static EventRegistrationToken g_nav_token;
 
-/* ---- callbacks ---- */
-
-static HRESULT STDMETHODCALLTYPE env_invoke(ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *This,
-                                            HRESULT errorCode, ICoreWebView2Environment *environment) {
-    (void)This;
-    if (FAILED(errorCode) || !environment) {
-        set_error("WebView2 environment creation failed (is the WebView2 Runtime installed?)");
-        g_state = -10;
-        return S_OK;
-    }
-    g_env = environment;
-    g_env->lpVtbl->AddRef(g_env);
-    g_state = 1;
-
-    g_ctrl_handler.lpVtbl = &g_ctrl_vtbl;
-    HRESULT hr = g_env->lpVtbl->CreateCoreWebView2Controller(
-        g_env, g_hwnd,
-        (ICoreWebView2CreateCoreWebView2ControllerCompletedHandler *)&g_ctrl_handler);
-    if (FAILED(hr)) {
-        set_error("CreateCoreWebView2Controller failed");
-        g_state = -11;
-    }
-    return S_OK;
-}
-
-static HRESULT STDMETHODCALLTYPE ctrl_invoke(ICoreWebView2CreateCoreWebView2ControllerCompletedHandler *This,
-                                             HRESULT errorCode, ICoreWebView2Controller *controller) {
-    (void)This;
-    if (FAILED(errorCode) || !controller) {
-        set_error("WebView2 controller creation failed");
-        g_state = -20;
-        return S_OK;
-    }
-    g_controller = controller;
-    g_controller->lpVtbl->AddRef(g_controller);
-    g_state = 2;
-
-    ICoreWebView2 *webview = NULL;
-    HRESULT hr = g_controller->lpVtbl->get_CoreWebView2(g_controller, &webview);
-    if (FAILED(hr) || !webview) {
-        set_error("get_CoreWebView2 failed");
-        g_state = -21;
-        return S_OK;
-    }
-    g_webview = webview;
-
-    g_msg_handler.lpVtbl = &g_msg_vtbl;
-    g_webview->lpVtbl->add_WebMessageReceived(
-        g_webview,
-        (ICoreWebView2WebMessageReceivedEventHandler *)&g_msg_handler,
-        &g_message_token);
-
-    g_nav_handler.lpVtbl = &g_nav_vtbl;
-    g_webview->lpVtbl->add_NavigationStarting(
-        g_webview,
-        (ICoreWebView2NavigationStartingEventHandler *)&g_nav_handler,
-        &g_nav_token);
-
-    RECT bounds;
-    GetClientRect(g_hwnd, &bounds);
-    g_controller->lpVtbl->put_Bounds(g_controller, bounds);
-
-    if (g_has_pending_folder) {
-        (void)apply_folder(g_pending_host, g_pending_dir);
-        g_has_pending_folder = 0;
-    }
-
-    wchar_t wide[2048];
-    utf8_to_wide(g_url, wide, 2048);
-    hr = g_webview->lpVtbl->Navigate(g_webview, wide);
-    if (FAILED(hr)) {
-        set_error("Navigate failed");
-        g_state = -22;
-        return S_OK;
-    }
-    g_state = 3;
-    return S_OK;
-}
-
-/* ---- public API ---- */
-
-int reverie_webview_start(void *hwnd, const char *url) {
-    g_hwnd = (HWND)hwnd;
-    g_state = 0;
-    g_error[0] = '\0';
-    g_url[0] = '\0';
-    if (url) snprintf(g_url, sizeof(g_url), "%s", url);
-
-    (void)CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
-    ensure_default_hosts();
-
-    HMODULE loader = LoadLibraryW(L"WebView2Loader.dll");
-    if (!loader) {
-        set_error("WebView2Loader.dll not found next to the executable");
-        g_state = -1;
-        return -1;
-    }
-    PFN_CreateEnv create = (PFN_CreateEnv)(void *)GetProcAddress(loader, "CreateCoreWebView2EnvironmentWithOptions");
-    if (!create) {
-        set_error("CreateCoreWebView2EnvironmentWithOptions not exported");
-        g_state = -2;
-        return -1;
-    }
-
-    wchar_t user_data[MAX_PATH];
-    wchar_t temp[MAX_PATH];
-    DWORD n = GetTempPathW(MAX_PATH, temp);
-    if (n == 0 || n >= MAX_PATH) swprintf(user_data, MAX_PATH, L"ReverieWebView2");
-    else swprintf(user_data, MAX_PATH, L"%lsReverieWebView2", temp);
-
-    g_env_handler.lpVtbl = &g_env_vtbl;
-    HRESULT hr = create(NULL, user_data, NULL,
-                        (ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *)&g_env_handler);
-    if (FAILED(hr)) {
-        set_error("CreateCoreWebView2EnvironmentWithOptions failed");
-        g_state = -3;
-        return -1;
-    }
-    return 0;
-}
-
-int reverie_webview_state(void) {
-    return g_state;
-}
-
-static int apply_folder(const char *host, const char *dir) {
-    if (!g_webview) { set_error("webview not ready"); return -1; }
+static int apply_folder(ReverieWindow *w, const char *host, const char *dir) {
+    if (!w || !w->webview) { set_error("webview not ready"); return -1; }
     ICoreWebView2_3 *webview3 = NULL;
-    HRESULT hr = g_webview->lpVtbl->QueryInterface(g_webview, &IID_ICoreWebView2_3, (void **)&webview3);
-    if (FAILED(hr) || !webview3) {
-        set_error("ICoreWebView2_3 unavailable");
-        return -1;
-    }
-    wchar_t wide_host[256];
-    wchar_t wide_dir[1024];
+    HRESULT hr = w->webview->lpVtbl->QueryInterface(w->webview, &IID_ICoreWebView2_3, (void **)&webview3);
+    if (FAILED(hr) || !webview3) { set_error("ICoreWebView2_3 unavailable"); return -1; }
+    wchar_t wide_host[256], wide_dir[1024];
     utf8_to_wide(host, wide_host, 256);
     utf8_to_wide(dir, wide_dir, 1024);
     hr = webview3->lpVtbl->SetVirtualHostNameToFolderMapping(
@@ -376,37 +303,24 @@ static int apply_folder(const char *host, const char *dir) {
     return 0;
 }
 
-int reverie_webview_set_folder(const char *host, const char *dir) {
-    /* The WebView2 is created asynchronously, so remember the mapping until the
-     * controller (and its CoreWebView2) exists. */
-    if (g_webview) return apply_folder(host, dir);
-    if (host) snprintf(g_pending_host, sizeof(g_pending_host), "%s", host);
-    if (dir) snprintf(g_pending_dir, sizeof(g_pending_dir), "%s", dir);
-    g_has_pending_folder = 1;
-    return 0;
+/* ---- public API ---- */
+
+void reverie_win_init(void) {
+    typedef BOOL (WINAPI *PFN_SetDpiCtx)(void *);
+    HMODULE user32 = GetModuleHandleA("user32.dll");
+    if (user32) {
+        PFN_SetDpiCtx setContext = (PFN_SetDpiCtx)(void *)GetProcAddress(user32, "SetProcessDpiAwarenessContext");
+        if (setContext && setContext((void *)(intptr_t)-4)) return;
+    }
+    SetProcessDPIAware();
 }
 
-int reverie_webview_send(const char *message) {
-    if (!g_webview) { set_error("webview not ready"); return -1; }
-    wchar_t wide[4096];
-    utf8_to_wide(message, wide, 4096);
-    HRESULT hr = g_webview->lpVtbl->PostWebMessageAsString(g_webview, wide);
-    if (FAILED(hr)) { set_error("PostWebMessageAsString failed"); return -1; }
-    return 0;
+void reverie_log_write(const char *message) {
+    FILE *f = fopen("reverie.log", "a");
+    if (!f) return;
+    fprintf(f, "[%lld] %s\n", (long long)time(NULL), message ? message : "");
+    fclose(f);
 }
-
-const char *reverie_webview_poll(void) {
-    if (!g_has_message) return "";
-    g_has_message = 0;
-    return g_message;
-}
-
-void reverie_webview_on_message(void (*handler)(const char *message)) {
-    g_message_handler = handler;
-}
-
-static NOTIFYICONDATAW g_tray;
-static int g_tray_active = 0;
 
 int reverie_tray_add(void *hwnd, const char *tooltip) {
     memset(&g_tray, 0, sizeof(g_tray));
@@ -415,12 +329,9 @@ int reverie_tray_add(void *hwnd, const char *tooltip) {
     g_tray.uID = 1;
     g_tray.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
     g_tray.uCallbackMessage = WM_APP + 1;
-    g_tray.hIcon = LoadIconW(NULL, MAKEINTRESOURCEW(32512)); /* IDI_APPLICATION */
+    g_tray.hIcon = LoadIconW(NULL, MAKEINTRESOURCEW(32512));
     utf8_to_wide(tooltip ? tooltip : "Reverie", g_tray.szTip, 128);
-    if (!Shell_NotifyIconW(NIM_ADD, &g_tray)) {
-        set_error("Shell_NotifyIcon failed");
-        return 0;
-    }
+    if (!Shell_NotifyIconW(NIM_ADD, &g_tray)) { set_error("Shell_NotifyIcon failed"); return 0; }
     g_tray_active = 1;
     return 1;
 }
@@ -431,19 +342,9 @@ void reverie_tray_remove(void) {
     g_tray_active = 0;
 }
 
-void reverie_log_write(const char *message) {
-    FILE *f = fopen("reverie.log", "a");
-    if (!f) return;
-    fprintf(f, "[%lld] %s\n", (long long)time(NULL), message ? message : "");
-    fclose(f);
-}
-
-static char g_dialog_path[1024];
-
 static void build_dialog_filter(const char *pattern, wchar_t *filter) {
     wchar_t wide[128];
     utf8_to_wide(pattern && *pattern ? pattern : "*.*", wide, 128);
-    /* "Files\0<pattern>\0All files\0*.*\0\0" */
     wchar_t *p = filter;
     wcscpy(p, L"Files"); p += wcslen(p) + 1;
     wcscpy(p, wide); p += wcslen(p) + 1;
@@ -461,7 +362,7 @@ static int run_dialog(int save, const char *pattern) {
     OPENFILENAMEW ofn;
     memset(&ofn, 0, sizeof(ofn));
     ofn.lStructSize = sizeof(ofn);
-    ofn.hwndOwner = g_hwnd;
+    ofn.hwndOwner = NULL;
     ofn.lpstrFilter = filter;
     ofn.lpstrFile = file;
     ofn.nMaxFile = MAX_PATH;
@@ -474,27 +375,8 @@ static int run_dialog(int save, const char *pattern) {
     return 1;
 }
 
-const char *reverie_dialog_open(const char *pattern) {
-    run_dialog(0, pattern);
-    return g_dialog_path;
-}
-
-const char *reverie_dialog_save(const char *pattern) {
-    run_dialog(1, pattern);
-    return g_dialog_path;
-}
-
-void reverie_win_init(void) {
-    /* Per-monitor DPI awareness v2 when available, else system DPI awareness.
-     * The default context value is HANDLE(-4). */
-    typedef BOOL (WINAPI *PFN_SetDpiCtx)(void *);
-    HMODULE user32 = GetModuleHandleA("user32.dll");
-    if (user32) {
-        PFN_SetDpiCtx setContext = (PFN_SetDpiCtx)(void *)GetProcAddress(user32, "SetProcessDpiAwarenessContext");
-        if (setContext && setContext((void *)(intptr_t)-4)) return;
-    }
-    SetProcessDPIAware();
-}
+const char *reverie_dialog_open(const char *pattern) { run_dialog(0, pattern); return g_dialog_path; }
+const char *reverie_dialog_save(const char *pattern) { run_dialog(1, pattern); return g_dialog_path; }
 
 void reverie_webview_allow_host(const char *host) {
     if (!host) return;
@@ -505,26 +387,92 @@ void reverie_webview_allow_host(const char *host) {
     snprintf(g_allowed_hosts[g_allowed_host_count++], 256, "%s", host);
 }
 
-int reverie_webview_navigate(const char *url) {
-    if (!g_webview) { set_error("webview not ready"); return -1; }
-    wchar_t wide[2048];
-    utf8_to_wide(url, wide, 2048);
-    HRESULT hr = g_webview->lpVtbl->Navigate(g_webview, wide);
-    if (FAILED(hr)) { set_error("Navigate failed"); return -1; }
+const char *reverie_webview_last_blocked(void) { return g_last_blocked; }
+
+int reverie_webview_start(void *hwnd, const char *url) {
+    ensure_default_hosts();
+    ReverieWindow *w = alloc_window((HWND)hwnd);
+    if (!w) { set_error("too many windows"); return -1; }
+    if (url) snprintf(w->initial_url, sizeof(w->initial_url), "%s", url);
+    w->state = 0;
+
+    (void)CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+
+    HMODULE loader = LoadLibraryW(L"WebView2Loader.dll");
+    if (!loader) { set_error("WebView2Loader.dll not found next to the executable"); w->state = -1; return -1; }
+    typedef HRESULT (STDAPICALLTYPE *PFN_CreateEnv)(PCWSTR, PCWSTR, ICoreWebView2EnvironmentOptions *, ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *);
+    PFN_CreateEnv create = (PFN_CreateEnv)(void *)GetProcAddress(loader, "CreateCoreWebView2EnvironmentWithOptions");
+    if (!create) { set_error("CreateCoreWebView2EnvironmentWithOptions not exported"); w->state = -2; return -1; }
+
+    wchar_t user_data[MAX_PATH];
+    wchar_t temp[MAX_PATH];
+    DWORD n = GetTempPathW(MAX_PATH, temp);
+    if (n == 0 || n >= MAX_PATH) swprintf(user_data, MAX_PATH, L"ReverieWebView2-%d", w->index);
+    else swprintf(user_data, MAX_PATH, L"%lsReverieWebView2-%d", temp, w->index);
+
+    w->env_handler.lpVtbl = &g_env_vtbl;
+    w->env_handler.owner = w;
+    HRESULT hr = create(NULL, user_data, NULL,
+                        (ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *)&w->env_handler);
+    if (FAILED(hr)) { set_error("CreateCoreWebView2EnvironmentWithOptions failed"); w->state = -3; return -1; }
     return 0;
 }
 
-const char *reverie_webview_last_blocked(void) {
-    return g_last_blocked;
+int reverie_webview_state(void *hwnd) {
+    ReverieWindow *w = find_window((HWND)hwnd);
+    return w ? w->state : -1;
+}
+
+int reverie_webview_send(void *hwnd, const char *message) {
+    ReverieWindow *w = find_window((HWND)hwnd);
+    if (!w || !w->webview) { set_error("webview not ready"); return -1; }
+    wchar_t wide[4096];
+    utf8_to_wide(message, wide, 4096);
+    if (FAILED(w->webview->lpVtbl->PostWebMessageAsString(w->webview, wide))) {
+        set_error("PostWebMessageAsString failed");
+        return -1;
+    }
+    return 0;
+}
+
+const char *reverie_webview_poll(void *hwnd) {
+    ReverieWindow *w = find_window((HWND)hwnd);
+    if (!w || !w->has_message) return "";
+    w->has_message = 0;
+    return w->message;
+}
+
+int reverie_webview_set_folder(void *hwnd, const char *host, const char *dir) {
+    ReverieWindow *w = find_window((HWND)hwnd);
+    if (!w) { set_error("unknown window"); return -1; }
+    if (w->webview) return apply_folder(w, host, dir);
+    if (host) snprintf(w->pending_host, sizeof(w->pending_host), "%s", host);
+    if (dir) snprintf(w->pending_dir, sizeof(w->pending_dir), "%s", dir);
+    w->has_pending_folder = 1;
+    return 0;
+}
+
+int reverie_webview_navigate(void *hwnd, const char *url) {
+    ReverieWindow *w = find_window((HWND)hwnd);
+    if (!w || !w->webview) { set_error("webview not ready"); return -1; }
+    wchar_t wide[2048];
+    utf8_to_wide(url, wide, 2048);
+    if (FAILED(w->webview->lpVtbl->Navigate(w->webview, wide))) { set_error("Navigate failed"); return -1; }
+    return 0;
+}
+
+void reverie_webview_on_message(void (*handler)(const char *message)) {
+    g_message_handler = handler;
+}
+
+void *reverie_webview_message_window(void) {
+    return g_message_window;
 }
 
 void reverie_webview_register_command(const char *name, void (*handler)(const char *arg)) {
     if (!name || !handler) return;
     for (int i = 0; i < g_command_count; i++) {
-        if (strcmp(g_commands[i].name, name) == 0) {
-            g_commands[i].handler = handler;
-            return;
-        }
+        if (strcmp(g_commands[i].name, name) == 0) { g_commands[i].handler = handler; return; }
     }
     if (g_command_count >= REVERIE_MAX_COMMANDS) return;
     snprintf(g_commands[g_command_count].name, sizeof(g_commands[g_command_count].name), "%s", name);
@@ -532,11 +480,14 @@ void reverie_webview_register_command(const char *name, void (*handler)(const ch
     g_command_count++;
 }
 
-void reverie_webview_stop(void) {
-    if (g_webview) { g_webview->lpVtbl->Release(g_webview); g_webview = NULL; }
-    if (g_controller) { g_controller->lpVtbl->Close(g_controller); g_controller->lpVtbl->Release(g_controller); g_controller = NULL; }
-    if (g_env) { g_env->lpVtbl->Release(g_env); g_env = NULL; }
-    g_state = 0;
+void reverie_webview_stop(void *hwnd) {
+    ReverieWindow *w = find_window((HWND)hwnd);
+    if (!w) return;
+    if (w->webview) { w->webview->lpVtbl->Release(w->webview); w->webview = NULL; }
+    if (w->controller) { w->controller->lpVtbl->Close(w->controller); w->controller->lpVtbl->Release(w->controller); w->controller = NULL; }
+    if (w->env) { w->env->lpVtbl->Release(w->env); w->env = NULL; }
+    w->state = 0;
+    w->used = 0;
 }
 
 const char *reverie_webview_error(void) {

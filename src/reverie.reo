@@ -14,7 +14,7 @@ fn reverie_launch() -> u64 {
     reverie_cfg_apply_security();
     let hwnd: u64 = reverie_create_window("ReverieWindow", reverie_cfg_title(),
         reverie_cfg_width(), reverie_cfg_height(), reverie_default_proc);
-    reverie_asset_folder(reverie_cfg_asset_host(), reverie_cfg_asset_folder());
+    reverie_asset_folder(hwnd, reverie_cfg_asset_host(), reverie_cfg_asset_folder());
     reverie_webview_open(hwnd, reverie_cfg_window_url());
     return hwnd;
 }

@@ -1,12 +1,11 @@
 // Reverie / Windows backend - WebView2 host bindings.
 //
-// These call the C shim in shim/reverie_webview2.c, which owns the WebView2 COM
-// details. Link the runtime with:
+// Multi-window: control functions take the target window handle (hwnd).
+// Command and message handlers are app-global; use reverie_message_window() to
+// reply to the window a command came from. Link with:
 //
 //   rev build src/main.reo \
-//     --lib-dir shim --link reverie_webview2 --link ole32 -o app.exe
-//
-// and ship WebView2Loader.dll next to the executable.
+//     --lib-dir shim/build --link reverie_webview2 --link ole32 --link comdlg32 -o app.exe
 
 extern {
     fn reverie_win_init();
@@ -15,18 +14,19 @@ extern {
     fn reverie_dialog_save(pattern: str) -> str;
     fn reverie_tray_add(hwnd: u64, tooltip: str) -> i32;
     fn reverie_tray_remove();
-    fn reverie_webview_start(hwnd: u64, url: str) -> i32;
-    fn reverie_webview_state() -> i32;
-    fn reverie_webview_stop();
-    fn reverie_webview_error() -> str;
-    fn reverie_webview_set_folder(host: str, dir: str) -> i32;
-    fn reverie_webview_send(message: str) -> i32;
-    fn reverie_webview_poll() -> str;
-    fn reverie_webview_on_message(handler: fn(str));
     fn reverie_webview_allow_host(host: str);
-    fn reverie_webview_navigate(url: str) -> i32;
-    fn reverie_webview_last_blocked() -> str;
+    fn reverie_webview_start(hwnd: u64, url: str) -> i32;
+    fn reverie_webview_state(hwnd: u64) -> i32;
+    fn reverie_webview_send(hwnd: u64, message: str) -> i32;
+    fn reverie_webview_poll(hwnd: u64) -> str;
+    fn reverie_webview_set_folder(hwnd: u64, host: str, dir: str) -> i32;
+    fn reverie_webview_navigate(hwnd: u64, url: str) -> i32;
+    fn reverie_webview_on_message(handler: fn(str));
+    fn reverie_webview_message_window() -> u64;
     fn reverie_webview_register_command(name: str, handler: fn(str));
+    fn reverie_webview_stop(hwnd: u64);
+    fn reverie_webview_error() -> str;
+    fn reverie_webview_last_blocked() -> str;
 }
 
 // Process-wide init (DPI awareness). Call before creating windows.
@@ -34,12 +34,10 @@ fn reverie_init() {
     reverie_win_init();
 }
 
-// Append a line to reverie.log next to the executable.
 fn reverie_log(message: str) {
     reverie_log_write(message);
 }
 
-// Native file dialogs (block until the user responds). Return the path or "".
 fn reverie_open_file(pattern: str) -> str {
     return reverie_dialog_open(pattern);
 }
@@ -48,7 +46,6 @@ fn reverie_save_file(pattern: str) -> str {
     return reverie_dialog_save(pattern);
 }
 
-// System tray icon. Tray events arrive at the window as WM_APP+1.
 fn reverie_tray_show(hwnd: u64, tooltip: str) -> i32 {
     return reverie_tray_add(hwnd, tooltip);
 }
@@ -57,64 +54,63 @@ fn reverie_tray_hide() {
     reverie_tray_remove();
 }
 
-// Host `url` inside `hwnd`. Returns 0 once the request is dispatched; the
-// WebView2 is created asynchronously while the message loop runs.
-fn reverie_webview_open(hwnd: u64, url: str) -> i32 {
-    return reverie_webview_start(hwnd, url);
-}
-
-// 0 idle, 1 environment ready, 2 controller ready, 3 navigated, <0 failed.
-fn reverie_webview_status() -> i32 {
-    return reverie_webview_state();
-}
-
-fn reverie_webview_last_error() -> str {
-    return reverie_webview_error();
-}
-
-fn reverie_webview_close() {
-    reverie_webview_stop();
-}
-
-// Serve a local folder over https at `host` (for example "reverie.local"),
-// so the bundled frontend loads without a dev server.
-fn reverie_asset_folder(host: str, dir: str) -> i32 {
-    return reverie_webview_set_folder(host, dir);
-}
-
-// Send a UTF-8 message to the page.
-fn reverie_send(message: str) -> i32 {
-    return reverie_webview_send(message);
-}
-
-// Next message the page posted, or "" when none.
-fn reverie_poll() -> str {
-    return reverie_webview_poll();
-}
-
-// Push: register a handler called for each message the page posts.
-fn reverie_on_message(handler: fn(str)) {
-    reverie_webview_on_message(handler);
-}
-
 // Allow an additional host to be loaded (reverie.local and localhost are
 // always allowed; other hosts are blocked by default).
 fn reverie_allow_host(host: str) {
     reverie_webview_allow_host(host);
 }
 
-// Navigate to url, subject to the host policy.
-fn reverie_navigate(url: str) -> i32 {
-    return reverie_webview_navigate(url);
+// Host `url` inside `hwnd`. Returns 0 once the request is dispatched.
+fn reverie_webview_open(hwnd: u64, url: str) -> i32 {
+    return reverie_webview_start(hwnd, url);
 }
 
-// URI of the most recent blocked navigation, or "".
-fn reverie_last_blocked() -> str {
-    return reverie_webview_last_blocked();
+// 0 idle, 1 environment ready, 2 controller ready, 3 navigated, <0 failed.
+fn reverie_webview_status(hwnd: u64) -> i32 {
+    return reverie_webview_state(hwnd);
+}
+
+fn reverie_send(hwnd: u64, message: str) -> i32 {
+    return reverie_webview_send(hwnd, message);
+}
+
+fn reverie_poll(hwnd: u64) -> str {
+    return reverie_webview_poll(hwnd);
+}
+
+// Serve a local folder over https at `host` for this window.
+fn reverie_asset_folder(hwnd: u64, host: str, dir: str) -> i32 {
+    return reverie_webview_set_folder(hwnd, host, dir);
+}
+
+fn reverie_navigate(hwnd: u64, url: str) -> i32 {
+    return reverie_webview_navigate(hwnd, url);
+}
+
+// Push: register a handler called for each message any page posts.
+fn reverie_on_message(handler: fn(str)) {
+    reverie_webview_on_message(handler);
+}
+
+// Window that produced the message currently being handled.
+fn reverie_message_window() -> u64 {
+    return reverie_webview_message_window();
 }
 
 // Register a command. The page sends "name" or "name:arg"; only registered
 // names are routed (the registry is the allowlist).
 fn reverie_register_command(name: str, handler: fn(str)) {
     reverie_webview_register_command(name, handler);
+}
+
+fn reverie_webview_close(hwnd: u64) {
+    reverie_webview_stop(hwnd);
+}
+
+fn reverie_webview_last_error() -> str {
+    return reverie_webview_error();
+}
+
+fn reverie_last_blocked() -> str {
+    return reverie_webview_last_blocked();
 }
