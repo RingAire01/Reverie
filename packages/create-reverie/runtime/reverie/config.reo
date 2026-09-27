@@ -9,6 +9,10 @@ fn reverie_cfg_width() -> i32 { return 900; }
 fn reverie_cfg_height() -> i32 { return 600; }
 fn reverie_cfg_asset_host() -> str { return "reverie.local"; }
 fn reverie_cfg_asset_folder() -> str { return "dist"; }
+fn reverie_cfg_decorations() -> i32 { return 1; }
+fn reverie_cfg_resizable() -> i32 { return 1; }
+fn reverie_cfg_always_on_top() -> i32 { return 0; }
+fn reverie_cfg_fullscreen() -> i32 { return 0; }
 
 fn reverie_cfg_apply_security() {
     reverie_allow_host("reverie.local");

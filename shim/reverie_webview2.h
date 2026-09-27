@@ -33,6 +33,10 @@ int reverie_webview_send(const char *message);
  * and valid only for the duration of the call. */
 void reverie_webview_on_message(void (*handler)(const char *message));
 
+/* Process-wide initialization: enable per-monitor DPI awareness. Call before
+ * creating any window. Safe to call more than once. */
+void reverie_win_init(void);
+
 /* Navigation policy: only these hosts (plus data:/about:/blob:) may be loaded.
  * "reverie.local" and "localhost" are allowed by default; everything else is
  * blocked. Hosts are matched case-insensitively, ignoring a port. */

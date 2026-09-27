@@ -402,6 +402,18 @@ void reverie_webview_on_message(void (*handler)(const char *message)) {
     g_message_handler = handler;
 }
 
+void reverie_win_init(void) {
+    /* Per-monitor DPI awareness v2 when available, else system DPI awareness.
+     * The default context value is HANDLE(-4). */
+    typedef BOOL (WINAPI *PFN_SetDpiCtx)(void *);
+    HMODULE user32 = GetModuleHandleA("user32.dll");
+    if (user32) {
+        PFN_SetDpiCtx setContext = (PFN_SetDpiCtx)(void *)GetProcAddress(user32, "SetProcessDpiAwarenessContext");
+        if (setContext && setContext((void *)(intptr_t)-4)) return;
+    }
+    SetProcessDPIAware();
+}
+
 void reverie_webview_allow_host(const char *host) {
     if (!host) return;
     ensure_default_hosts();

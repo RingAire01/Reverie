@@ -1,8 +1,40 @@
 // Reverie / Windows backend - window lifecycle.
 
-// WS_OVERLAPPEDWINDOW, SW_SHOW.
+// WS_OVERLAPPEDWINDOW = 0x00CF0000, WS_POPUP = 0x80000000, WS_EX_TOPMOST = 8,
+// SW_SHOW = 5, SW_MAXIMIZE = 3.
 fn reverie_ws_overlappedwindow() -> u32 { return 13565952; }
 fn reverie_sw_show() -> i32 { return 5; }
+
+// Window style/ex-style derived from configuration. Fullscreen and borderless
+// use WS_POPUP; non-resizable clears WS_THICKFRAME and WS_MAXIMIZEBOX.
+fn reverie_window_style() -> u32 {
+    if reverie_cfg_fullscreen() != 0 {
+        return 2147483648;
+    }
+    if reverie_cfg_decorations() == 0 {
+        return 2147483648;
+    }
+    let style: u32 = reverie_ws_overlappedwindow();
+    if reverie_cfg_resizable() == 0 {
+        // Clear WS_THICKFRAME (0x00040000) and WS_MAXIMIZEBOX (0x00010000).
+        style = style & ((~ (262144 | 65536)) as u32);
+    }
+    return style;
+}
+
+fn reverie_window_exstyle() -> u32 {
+    if reverie_cfg_always_on_top() != 0 {
+        return 8;
+    }
+    return 0;
+}
+
+fn reverie_window_show_cmd() -> i32 {
+    if reverie_cfg_fullscreen() != 0 {
+        return 3;
+    }
+    return reverie_sw_show();
+}
 
 // Default window procedure: quits on WM_DESTROY, closes on WM_CLOSE, and quits
 // when the demo timer fires. Apps may pass their own procedure instead.
@@ -43,9 +75,9 @@ fn reverie_register_class(class_name: str, proc: fn(u64, u32, u64, u64) -> u64) 
 fn reverie_create_window(class_name: str, title: str, width: i32, height: i32,
                          proc: fn(u64, u32, u64, u64) -> u64) -> u64 {
     reverie_register_class(class_name, proc);
-    let hwnd: u64 = CreateWindowExA(0, class_name, title, reverie_ws_overlappedwindow(),
-        120, 120, width, height, 0, 0, GetModuleHandleA(0), 0);
-    ShowWindow(hwnd, reverie_sw_show());
+    let hwnd: u64 = CreateWindowExA(reverie_window_exstyle(), class_name, title,
+        reverie_window_style(), 120, 120, width, height, 0, 0, GetModuleHandleA(0), 0);
+    ShowWindow(hwnd, reverie_window_show_cmd());
     UpdateWindow(hwnd);
     return hwnd;
 }

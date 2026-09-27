@@ -49,7 +49,17 @@ $text += "fn reverie_cfg_title() -> str { return `"$(Esc $title)`"; }`n"
 $text += "fn reverie_cfg_width() -> i32 { return $width; }`n"
 $text += "fn reverie_cfg_height() -> i32 { return $height; }`n"
 $text += "fn reverie_cfg_asset_host() -> str { return `"$(Esc $assetHost)`"; }`n"
-$text += "fn reverie_cfg_asset_folder() -> str { return `"$(Esc $assetFolder)`"; }`n`n"
+$text += "fn reverie_cfg_asset_folder() -> str { return `"$(Esc $assetFolder)`"; }`n"
+
+function Flag($value, $default) {
+    if ($null -eq $value) { return $default }
+    if ($value -eq $true) { return 1 }
+    return 0
+}
+$text += "fn reverie_cfg_decorations() -> i32 { return $(Flag $json.window.decorations 1); }`n"
+$text += "fn reverie_cfg_resizable() -> i32 { return $(Flag $json.window.resizable 1); }`n"
+$text += "fn reverie_cfg_always_on_top() -> i32 { return $(Flag $json.window.alwaysOnTop 0); }`n"
+$text += "fn reverie_cfg_fullscreen() -> i32 { return $(Flag $json.window.fullscreen 0); }`n`n"
 $text += "fn reverie_cfg_apply_security() {`n"
 foreach ($allowedHost in $hosts) {
     $text += "    reverie_allow_host(`"$(Esc $allowedHost)`");`n"

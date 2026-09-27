@@ -10,7 +10,7 @@ Legend: ✅ done · 🚧 partial · ⬜ not started
 | Area | Tauri mechanism | Reverie status | Plan / blocker |
 | --- | --- | --- | --- |
 | Web engine | System WebView (WebView2/WKWebView/WebKitGTK) | ✅ Windows | macOS/Linux backends |
-| Window | Window API, multi-window, DPI, decorations | 🚧 single window | multi-window + DPI + decorations |
+| Window | Window API, multi-window, DPI, decorations | 🚧 config-driven decorations/resizable/topmost/fullscreen + per-monitor DPI; single window | multi-window |
 | IPC request/response | `invoke` commands, serde | ✅ command registry (`reverie_register_command`, `"name:arg"`) | JSON payloads later |
 | IPC events (push) | `emit` / listeners | ✅ single handler via `reverie_on_message` | per-window/multi handler needs closures |
 | Asset protocol | custom protocol | ✅ virtual host mapping | scope to the app folder |

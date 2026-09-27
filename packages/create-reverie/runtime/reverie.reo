@@ -10,6 +10,7 @@ import "reverie/config"
 // Create the main window from configuration, apply the security policy, and
 // load the configured frontend host.
 fn reverie_launch() -> u64 {
+    reverie_init();
     reverie_cfg_apply_security();
     let hwnd: u64 = reverie_create_window("ReverieWindow", reverie_cfg_title(),
         reverie_cfg_width(), reverie_cfg_height(), reverie_default_proc);

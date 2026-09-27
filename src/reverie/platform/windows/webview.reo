@@ -9,6 +9,7 @@
 // and ship WebView2Loader.dll next to the executable.
 
 extern {
+    fn reverie_win_init();
     fn reverie_webview_start(hwnd: u64, url: str) -> i32;
     fn reverie_webview_state() -> i32;
     fn reverie_webview_stop();
@@ -21,6 +22,11 @@ extern {
     fn reverie_webview_navigate(url: str) -> i32;
     fn reverie_webview_last_blocked() -> str;
     fn reverie_webview_register_command(name: str, handler: fn(str));
+}
+
+// Process-wide init (DPI awareness). Call before creating windows.
+fn reverie_init() {
+    reverie_win_init();
 }
 
 // Host `url` inside `hwnd`. Returns 0 once the request is dispatched; the

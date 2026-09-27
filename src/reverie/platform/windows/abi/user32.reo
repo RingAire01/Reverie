@@ -17,4 +17,5 @@ extern {
     fn PostQuitMessage(code: i32);
     fn IsWindow(hwnd: u64) -> i32;
     fn GetWindowRect(hwnd: u64, rect: &Rect) -> i32;
+    fn GetWindowLongA(hwnd: u64, index: i32) -> i32;
 }
