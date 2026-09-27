@@ -8,9 +8,9 @@ A Reverie desktop app.
 ## Scripts
 
 ```sh
-npm install
-npm run dev          # web frontend (Vite / Next)
-npm run reverie:dev  # build and run the RingEcho runtime
+pnpm install
+pnpm dev           # web frontend (Vite / Next)
+pnpm reverie:dev   # build and run the RingEcho runtime
 ```
 
 Both halves are developed independently; they are joined by the Reverie IPC

@@ -7,9 +7,17 @@ tooling (Vite, React, Vue, Next.js).
 Published under the `ringaire` npm organization.
 
 ```sh
-npm create @ringaire/reverie@latest my-app -- --template react
+pnpm create @ringaire/reverie my-app --template react
 # or from this repo:
 node packages/create-reverie/bin/create-reverie.js my-app --template react
+```
+
+The generated app uses pnpm by default; override with `--pm npm|pnpm|bun`.
+
+## Publish
+
+```sh
+pnpm --filter @ringaire/create-reverie publish --access public
 ```
 
 ## Templates

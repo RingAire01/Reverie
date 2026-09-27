@@ -48,7 +48,7 @@ split so Reverie fits JS/TS tooling: a web frontend in `src/` and the RingEcho
 runtime in `src-reverie/`.
 
 ```sh
-npm create @ringaire/reverie@latest my-app -- --template react
+pnpm create @ringaire/reverie my-app --template react
 # templates: vanilla, react, vue, next
 ```
 

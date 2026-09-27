@@ -19,7 +19,7 @@ export const TEMPLATE_NAMES = readdirSync(TEMPLATES).filter(
 );
 
 function parseArgs(argv) {
-  const options = { template: "react", install: false, force: false, pm: "npm" };
+  const options = { template: "react", install: false, force: false, pm: "pnpm" };
   const positional = [];
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
