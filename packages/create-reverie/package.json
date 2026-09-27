@@ -1,6 +1,6 @@
 {
   "name": "@ringaire/create-reverie",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Scaffold a Reverie desktop app: a RingEcho runtime in src-reverie/ plus a web frontend in src/.",
   "type": "module",
   "license": "MIT",

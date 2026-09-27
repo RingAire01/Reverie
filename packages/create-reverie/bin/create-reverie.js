@@ -55,9 +55,23 @@ function isDirectoryEmpty(dir) {
 }
 
 function applyName(file, appName) {
-  if (!file.endsWith(".json")) return;
-  const text = readFileSync(file, "utf8");
+  let text;
+  try {
+    text = readFileSync(file, "utf8");
+  } catch {
+    return;
+  }
+  if (!text.includes("__REVERIE_NAME__")) return;
   writeFileSync(file, text.replaceAll("__REVERIE_NAME__", appName), "utf8");
+}
+
+function applyNameRecursive(dir, appName) {
+  for (const entry of readdirSync(dir)) {
+    if (entry === "node_modules" || entry === ".git") continue;
+    const path = join(dir, entry);
+    if (statSync(path).isDirectory()) applyNameRecursive(path, appName);
+    else applyName(path, appName);
+  }
 }
 
 export function scaffold({ target, template, force }) {
@@ -82,11 +96,7 @@ export function scaffold({ target, template, force }) {
   if (existsSync(baseDir)) cpSync(baseDir, appDir, { recursive: true });
   const templateDir = join(TEMPLATES, template);
   cpSync(templateDir, appDir, { recursive: true });
-  for (const entry of readdirSync(appDir)) {
-    const path = join(appDir, entry);
-    if (statSync(path).isFile()) applyName(path, appName);
-  }
-  applyName(join(appDir, "package.json"), appName);
+  applyNameRecursive(appDir, appName);
 
   // RingEcho runtime.
   cpSync(RUNTIME, join(appDir, "src-reverie"), { recursive: true });

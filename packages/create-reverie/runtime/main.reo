@@ -1,21 +1,26 @@
-// Reverie M0 demo.
+// Reverie M1 demo: a Win32 window hosting a WebView2.
 //
-// Uses only the public facade. The window procedure is the library default
-// (`reverie_default_proc`); a custom one is just another `.reo` function.
+// Build (from the repo root), with WebView2Loader.dll next to the output:
+//
+//   rev build src/main.reo \
+//     --lib-dir shim --link reverie_webview2 --link ole32 -o app.exe
 
 import "reverie"
 
 fn main() {
-    let hwnd: u64 = reverie_create_window("ReverieWindow", "Reverie M0", 640, 480,
+    let hwnd: u64 = reverie_create_window("ReverieWindow", "Reverie M1", 900, 600,
         reverie_default_proc);
     println(IsWindow(hwnd));
 
-    let rect = Rect { left: 0, top: 0, right: 0, bottom: 0 };
-    GetWindowRect(hwnd, &rect);
-    println(rect.right - rect.left);
-    println(rect.bottom - rect.top);
+    let started: i32 = reverie_webview_open(hwnd,
+        "data:text/html,<h1 style='font-family:sans-serif'>Reverie M1</h1>");
+    println(started);
 
-    reverie_quit_after(hwnd, 2000);
+    reverie_quit_after(hwnd, 4000);
     reverie_run_loop();
-    println("Reverie M0 finished");
+
+    println(reverie_webview_status());
+    println(reverie_webview_last_error());
+    reverie_webview_close();
+    println("Reverie M1 finished");
 }
