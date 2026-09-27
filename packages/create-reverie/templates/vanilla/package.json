@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "reverie:shim": "powershell -File shim/build.ps1",
     "reverie:build": "powershell -File scripts/build-app.ps1",
-    "reverie:dev": "powershell -File scripts/build-app.ps1 && start src-reverie/target/release/app.exe"
+    "reverie:dev": "powershell -File scripts/build-app.ps1 -Dev && start src-reverie/target/debug/app.exe"
   },
   "devDependencies": {
     "vite": "^8.3.0"

@@ -98,14 +98,19 @@ rev run src/main.reo
 
 ### WebView2 (M1)
 
+Requires a `rev` built from RingEcho source that includes the host-integration
+flags `--include` / `--lib-dir` / `--link` (RingEcho commit `5f11634` or newer;
+an older installed `rev` reports `unknown option: --lib-dir`).
+
 ```sh
-pwsh scripts/fetch-webview2.ps1   # once: WebView2 SDK into shim/webview2/
-pwsh shim/build.ps1               # build shim/libreverie_webview2.a
-rev build src/main.reo --lib-dir shim --link reverie_webview2 --link ole32 -o app.exe
+powershell -File scripts/fetch-webview2.ps1   # once: WebView2 SDK into shim/webview2/
+powershell -File shim/build.ps1               # build shim/build/libreverie_webview2.a
+rev build src/main.reo --lib-dir shim/build --link reverie_webview2 --link ole32 -o target/release/app.exe
 ```
 
 Place `WebView2Loader.dll` (from `shim/webview2/x64/`) and `libwinpthread-1.dll`
-next to `app.exe`. `app.exe` prints the window/WebView2 state and exits 0:
+next to `target/release/app.exe`. The executables under `target/` are build
+artifacts and are not committed. `app.exe` prints the state and exits 0:
 
 ```
 1        IsWindow(hwnd)

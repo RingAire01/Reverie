@@ -1,6 +1,6 @@
 # Build a Reverie app end to end: shim -> native binary -> runtime DLLs.
 #
-#   powershell -File scripts/build-app.ps1 [-Name app] [-Profile release]
+#   powershell -File scripts/build-app.ps1 [-Name app] [-Profile release] [-Dev]
 #
 # Output mirrors Tauri's src-tauri/target layout: everything lands under
 # src-reverie/target/<profile>/.
@@ -15,6 +15,7 @@
 param(
     [string]$Name = "app",
     [ValidateSet('debug', 'release')][string]$Profile = 'release',
+    [switch]$Dev,
     [string]$Rev = $env:REV,
     [string]$CC = $env:REO_CC,
     [string]$Ar = $env:REO_AR
@@ -26,6 +27,7 @@ $ErrorActionPreference = 'Continue'
 if (-not $Rev) { $Rev = 'rev' }
 if (-not $CC) { $CC = 'gcc' }
 if (-not $Ar) { $Ar = 'llvm-ar' }
+if ($Dev -and -not $PSBoundParameters.ContainsKey('Profile')) { $Profile = 'debug' }
 
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $appRoot = Split-Path -Parent $here
@@ -42,9 +44,9 @@ if (-not (Test-Path (Join-Path $shim 'webview2/include/WebView2.h'))) {
 # 2. C shim static library.
 & (Join-Path $shim 'build.ps1') -CC $CC -Ar $Ar
 
-# 3. Generated configuration.
+# 3. Generated configuration (dev mode points the window at the dev server).
 $genConfig = Join-Path $here 'gen-config.ps1'
-if (Test-Path $genConfig) { & $genConfig }
+if (Test-Path $genConfig) { & $genConfig -Dev:$Dev }
 
 # 4. Native binary (RingEcho runtime).
 & $Rev build (Join-Path $srcReve 'main.reo') --lib-dir (Join-Path $shim 'build') --link reverie_webview2 --link ole32 -o (Join-Path $outDir "$Name.exe")
