@@ -11,7 +11,7 @@ Legend: ✅ done · 🚧 in progress · ⛔ blocked · ⬜ not started
 | # | Milestone | Status |
 | --- | --- | --- |
 | M0 | Win32 window + message loop, `WNDPROC` written in `.reo` | ✅ |
-| M1 | WebView2 host via a thin C shim (WebView2Loader + COM) | ⛔ blocked on A1–A3 |
+| M1 | WebView2 host via a thin C shim (WebView2Loader + COM) | ✅ |
 | M2 | IPC bridge (JS ↔ `.reo`) and a `reverie://` asset protocol | ⬜ |
 | M3 | Packaging, including the runtime DLLs | ⬜ |
 | M4 | macOS (WKWebView) and Linux (WebKitGTK) backends | ⬜ |
@@ -74,7 +74,7 @@ confirmed by experiment against `rev v0.2.0` on Windows 11.
 
 The smallest set that makes Reverie genuinely useful:
 
-1. **M1** WebView2 host (needs A1 + A2)
+1. ~~**M1** WebView2 host~~ ✅
 2. IPC bridge (needs A4 + A5)
 3. `reverie://` asset protocol
 4. Dev-server integration (Vite / Next)
@@ -84,6 +84,13 @@ Everything else (M4, M5) can follow once that path is proven on Windows.
 
 ## Current state
 
-M0 only. The native side opens an empty window; it does **not** host a frontend
-yet. The `create-reverie` scaffolder produces the correct `src/` +
-`src-reverie/` layout, but the two halves are not connected until M2.
+M0 + M1. The native side opens a Win32 window and hosts a WebView2 that
+navigates to a URL; the COM details live in a C shim (`shim/reverie_webview2.c`)
+linked with `rev build --lib-dir shim --link reverie_webview2 --link ole32`.
+
+Verified on Windows 11: `reverie_webview_open` dispatches, the controller is
+created, and `reverie_webview_state()` reaches `3` (navigated) with no error.
+
+Still missing before it is usable: the frontend (from `src/`) is not yet served
+into the webview, there is no IPC bridge, and packaging must bundle
+`WebView2Loader.dll` (and `libwinpthread-1.dll`, or link statically).

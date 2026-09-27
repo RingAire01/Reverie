@@ -1,5 +1,10 @@
 target/
 *.exe
 *.obj
-*.dll
 *.pdb
+*.dll
+
+# WebView2 SDK and the shim build output are fetched/built, not committed.
+shim/webview2/
+shim/*.o
+shim/*.a

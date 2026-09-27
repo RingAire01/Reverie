@@ -8,9 +8,13 @@ runtime orchestration on top of the platform's C ABI.
 
 ## Status
 
-Milestone **M0**: a Win32 window plus a message loop, driven from `.reo`.
+Milestones **M0** and **M1** on Windows:
 
-- Platform: Windows only, C backend (`rev build` / `rev run`).
+- M0: a Win32 window plus a message loop, driven from `.reo`.
+- M1: a WebView2 hosted in that window. The COM details live in
+  `shim/reverie_webview2.c`; the Reo side calls a plain C API.
+
+- Platform: Windows, C backend (`rev build` / `rev run`).
 
 ## Layout
 
@@ -24,7 +28,12 @@ src/
     messages.reo           WM_* identifiers
     window.reo             class registration, creation, default procedure
     loop.reo               message loop
-  main.reo                 M0 demo, uses only the facade
+  reverie/webview2.reo     WebView2 shim bindings
+  main.reo                 M1 demo (window + WebView2)
+shim/
+  reverie_webview2.c/.h    C boundary over the WebView2 COM API
+  build.ps1                compiles shim/libreverie_webview2.a
+  webview2/                fetched SDK (not committed)
 ```
 
 RingEcho has no namespaces: every imported declaration lands in one global
@@ -52,8 +61,28 @@ pnpm create @ringaire/reverie my-app --template react
 Requires the `rev` compiler and a Windows C toolchain on `PATH` (for example
 LLVM-MinGW, which also links `user32`/`kernel32` by default).
 
+M0 only (no WebView2):
+
 ```sh
 rev run src/main.reo
+```
+
+### WebView2 (M1)
+
+```sh
+pwsh scripts/fetch-webview2.ps1   # once: WebView2 SDK into shim/webview2/
+pwsh shim/build.ps1               # build shim/libreverie_webview2.a
+rev build src/main.reo --lib-dir shim --link reverie_webview2 --link ole32 -o app.exe
+```
+
+Place `WebView2Loader.dll` (from `shim/webview2/x64/`) and `libwinpthread-1.dll`
+next to `app.exe`. `app.exe` prints the window/WebView2 state and exits 0:
+
+```
+1        IsWindow(hwnd)
+0        reverie_webview_open dispatched
+3        WebView2 state: navigated
+Reverie M1 finished
 ```
 
 The window procedure (`wnd_proc`) is written in RingEcho. RingEcho lowers

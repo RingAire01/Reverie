@@ -1,0 +1,35 @@
+// Reverie - WebView2 host bindings (Windows).
+//
+// These call the C shim in shim/reverie_webview2.c, which owns the WebView2 COM
+// details. Link the runtime with:
+//
+//   rev build src/main.reo \
+//     --lib-dir shim --link reverie_webview2 --link ole32 -o app.exe
+//
+// and ship WebView2Loader.dll next to the executable.
+
+extern {
+    fn reverie_webview_start(hwnd: u64, url: str) -> i32;
+    fn reverie_webview_state() -> i32;
+    fn reverie_webview_stop();
+    fn reverie_webview_error() -> str;
+}
+
+// Host `url` inside `hwnd`. Returns 0 once the request is dispatched; the
+// WebView2 is created asynchronously while the message loop runs.
+fn reverie_webview_open(hwnd: u64, url: str) -> i32 {
+    return reverie_webview_start(hwnd, url);
+}
+
+// 0 idle, 1 environment ready, 2 controller ready, 3 navigated, <0 failed.
+fn reverie_webview_status() -> i32 {
+    return reverie_webview_state();
+}
+
+fn reverie_webview_last_error() -> str {
+    return reverie_webview_error();
+}
+
+fn reverie_webview_close() {
+    reverie_webview_stop();
+}
