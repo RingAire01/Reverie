@@ -1,0 +1,56 @@
+// Reverie - window lifecycle built on the ABI layer.
+
+// WS_OVERLAPPEDWINDOW, SW_SHOW, and the demo timer id.
+fn reverie_ws_overlappedwindow() -> u32 { return 13565952; }
+fn reverie_sw_show() -> i32 { return 5; }
+
+// Default window procedure: quits on WM_DESTROY, closes on WM_CLOSE, and quits
+// when the demo timer fires. App code can pass its own procedure instead.
+fn reverie_default_proc(hwnd: u64, msg: u32, wparam: u64, lparam: u64) -> u64 {
+    if msg == reverie_wm_destroy() {
+        PostQuitMessage(0);
+        return 0;
+    }
+    if msg == reverie_wm_close() {
+        DestroyWindow(hwnd);
+        return 0;
+    }
+    if msg == reverie_wm_timer() {
+        KillTimer(hwnd, 1);
+        DestroyWindow(hwnd);
+        return 0;
+    }
+    return DefWindowProcA(hwnd, msg, wparam, lparam);
+}
+
+fn reverie_register_class(class_name: str, proc: fn(u64, u32, u64, u64) -> u64) -> u16 {
+    let wc = WndClassA {
+        style: 0,
+        wndproc: proc,
+        cls_extra: 0,
+        wnd_extra: 0,
+        instance: GetModuleHandleA(0),
+        icon: 0,
+        cursor: 0,
+        background: 0,
+        menu_name: "",
+        class_name: class_name,
+    };
+    return RegisterClassA(&wc);
+}
+
+// Registers the class and creates, shows, and updates the window.
+fn reverie_create_window(class_name: str, title: str, width: i32, height: i32,
+                         proc: fn(u64, u32, u64, u64) -> u64) -> u64 {
+    reverie_register_class(class_name, proc);
+    let hwnd: u64 = CreateWindowExA(0, class_name, title, reverie_ws_overlappedwindow(),
+        120, 120, width, height, 0, 0, GetModuleHandleA(0), 0);
+    ShowWindow(hwnd, reverie_sw_show());
+    UpdateWindow(hwnd);
+    return hwnd;
+}
+
+// Posts WM_TIMER once after `ms`, which the default procedure turns into an exit.
+fn reverie_quit_after(hwnd: u64, ms: u32) {
+    SetTimer(hwnd, 1, ms, 0);
+}

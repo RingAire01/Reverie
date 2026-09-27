@@ -1,0 +1,15 @@
+{
+  "name": "__REVERIE_NAME__",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "reverie:dev": "rev run src-reverie/main.reo"
+  },
+  "devDependencies": {
+    "vite": "^8.3.0"
+  }
+}

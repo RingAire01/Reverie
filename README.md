@@ -41,6 +41,17 @@ Later milestones:
 | M2 | IPC bridge (JS <-> `.reo` commands) and an asset protocol |
 | M3 | Packaging, including the runtime DLLs |
 
+## Scaffolding
+
+`packages/create-reverie` is the Node initializer. It produces the Tauri-style
+split so Reverie fits JS/TS tooling: a web frontend in `src/` and the RingEcho
+runtime in `src-reverie/`.
+
+```sh
+npm create @ringaire/reverie@latest my-app -- --template react
+# templates: vanilla, react, vue, next
+```
+
 ## Build and run
 
 Requires the `rev` compiler and a Windows C toolchain on `PATH` (for example

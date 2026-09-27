@@ -1,0 +1,12 @@
+// Reverie - public facade.
+//
+// Consumers import this single module; it pulls in the ABI layer and the
+// runtime built on top of it. Reo resolves every import relative to the entry
+// file's directory, so from `src/main.reo` these paths point at `src/reverie/`.
+
+import "reverie/abi/structs"
+import "reverie/abi/user32"
+import "reverie/abi/kernel32"
+import "reverie/messages"
+import "reverie/window"
+import "reverie/loop"

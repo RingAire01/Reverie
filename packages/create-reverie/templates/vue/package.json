@@ -1,0 +1,19 @@
+{
+  "name": "__REVERIE_NAME__",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "reverie:dev": "rev run src-reverie/main.reo"
+  },
+  "dependencies": {
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.0",
+    "vite": "^8.3.0"
+  }
+}

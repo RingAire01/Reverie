@@ -1,0 +1,21 @@
+// Reverie M0 demo.
+//
+// Uses only the public facade. The window procedure is the library default
+// (`reverie_default_proc`); a custom one is just another `.reo` function.
+
+import "reverie"
+
+fn main() {
+    let hwnd: u64 = reverie_create_window("ReverieWindow", "Reverie M0", 640, 480,
+        reverie_default_proc);
+    println(IsWindow(hwnd));
+
+    let rect = Rect { left: 0, top: 0, right: 0, bottom: 0 };
+    GetWindowRect(hwnd, &rect);
+    println(rect.right - rect.left);
+    println(rect.bottom - rect.top);
+
+    reverie_quit_after(hwnd, 2000);
+    reverie_run_loop();
+    println("Reverie M0 finished");
+}

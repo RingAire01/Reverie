@@ -1,0 +1,21 @@
+// Reverie - message loop.
+//
+// GetMessageA blocks until a message arrives; it returns 0 after
+// PostQuitMessage and a negative value on error, so the loop ends on both.
+
+fn reverie_run_loop() -> i32 {
+    let msg = Msg {
+        hwnd: 0,
+        message: 0,
+        wparam: 0,
+        lparam: 0,
+        time: 0,
+        pt_x: 0,
+        pt_y: 0,
+    };
+    while GetMessageA(&msg, 0, 0, 0) > 0 {
+        TranslateMessage(&msg);
+        DispatchMessageA(&msg);
+    }
+    return 0;
+}

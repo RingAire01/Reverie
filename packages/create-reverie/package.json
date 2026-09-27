@@ -1,0 +1,29 @@
+{
+  "name": "@ringaire/create-reverie",
+  "version": "0.1.0",
+  "description": "Scaffold a Reverie desktop app: a RingEcho runtime in src-reverie/ plus a web frontend in src/.",
+  "type": "module",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RingAire01/Reverie.git",
+    "directory": "packages/create-reverie"
+  },
+  "bin": {
+    "create-reverie": "bin/create-reverie.js"
+  },
+  "files": [
+    "bin",
+    "templates",
+    "runtime"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "sync-runtime": "node scripts/sync-runtime.mjs"
+  }
+}

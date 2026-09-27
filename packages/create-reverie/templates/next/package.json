@@ -1,0 +1,16 @@
+{
+  "name": "__REVERIE_NAME__",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "reverie:dev": "rev run src-reverie/main.reo"
+  },
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  }
+}
