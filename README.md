@@ -141,3 +141,7 @@ A window titled `Reverie M0` appears for about two seconds; `SetTimer` posts
 RingEcho has no capturing closures yet, so callbacks are limited to plain
 functions with no captured environment. M0 relies on this directly; M2's JS
 <-> `.reo` command bridge will need a documented trampoline workaround.
+
+## License
+
+[Apache-2.0](LICENSE) - Copyright (c) 2025-2026 辉夜铃 (KaguyaRing) & Ringaire
