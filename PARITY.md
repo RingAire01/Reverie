@@ -11,11 +11,11 @@ Legend: ✅ done · 🚧 partial · ⬜ not started
 | --- | --- | --- | --- |
 | Web engine | System WebView (WebView2/WKWebView/WebKitGTK) | ✅ Windows | macOS/Linux backends |
 | Window | Window API, multi-window, DPI, decorations | 🚧 single window | multi-window + DPI + decorations |
-| IPC request/response | `invoke` commands, serde | 🚧 `postMessage` + `reverie_send` | command dispatcher layer |
+| IPC request/response | `invoke` commands, serde | ✅ command registry (`reverie_register_command`, `"name:arg"`) | JSON payloads later |
 | IPC events (push) | `emit` / listeners | ✅ single handler via `reverie_on_message` | per-window/multi handler needs closures |
 | Asset protocol | custom protocol | ✅ virtual host mapping | scope to the app folder |
-| Security: CSP | `security.csp` | ⬜ | inject CSP header/meta per window |
-| Security: permissions | capabilities + per-command allowlist | ⬜ | allowlist checked in the dispatcher |
+| Security: CSP | `security.csp` | 🚧 default CSP meta in templates | config-driven per window |
+| Security: permissions | capabilities + per-command allowlist | ✅ registry is the allowlist | capability config later |
 | Security: isolation | per-window scope, no remote by default | ✅ `reverie_allow_host` + navigation policy | per-window allowlists later |
 | Config | `tauri.conf.json` + schema | 🚧 `ringecho.toml` | `reverie.conf` + JSON schema |
 | Menus / tray | Menu/Tray APIs | ⬜ | Win32 menus; needs a command bridge |

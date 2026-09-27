@@ -44,6 +44,11 @@ int reverie_webview_navigate(const char *url);
 /* URI of the most recent blocked navigation, or "" if none. */
 const char *reverie_webview_last_blocked(void);
 
+/* Command registry (allowlist). A page message "name" or "name:arg" is routed
+ * to the handler registered for "name"; unregistered names are rejected.
+ * Registering the same name again replaces the handler. */
+void reverie_webview_register_command(const char *name, void (*handler)(const char *arg));
+
 /* Next message posted by the page, or "" when none. The returned pointer is
  * owned by the shim and valid until the next call. */
 const char *reverie_webview_poll(void);

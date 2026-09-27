@@ -35,6 +35,31 @@ static int  g_allowed_host_count = 0;
 static char g_last_blocked[2048];
 
 static int host_allowed(const char *uri);
+static void set_error(const char *message);
+
+#define REVERIE_MAX_COMMANDS 32
+static struct {
+    char name[64];
+    void (*handler)(const char *arg);
+} g_commands[REVERIE_MAX_COMMANDS];
+static int g_command_count = 0;
+
+static void dispatch_command(const char *message) {
+    char name[64];
+    const char *colon = strchr(message, ':');
+    size_t n = colon ? (size_t)(colon - message) : strlen(message);
+    if (n >= sizeof(name)) n = sizeof(name) - 1;
+    memcpy(name, message, n);
+    name[n] = '\0';
+    const char *arg = colon ? colon + 1 : "";
+    for (int i = 0; i < g_command_count; i++) {
+        if (strcmp(g_commands[i].name, name) == 0) {
+            g_commands[i].handler(arg);
+            return;
+        }
+    }
+    set_error("unknown command");
+}
 static char g_pending_host[256];
 static char g_pending_dir[1024];
 static int  g_has_pending_folder = 0;
@@ -119,7 +144,8 @@ static HRESULT STDMETHODCALLTYPE msg_invoke(ICoreWebView2WebMessageReceivedEvent
         WideCharToMultiByte(CP_UTF8, 0, text, -1, g_message, (int)sizeof(g_message), NULL, NULL);
         g_has_message = 1;
         CoTaskMemFree(text);
-        if (g_message_handler) g_message_handler(g_message);
+        if (g_command_count > 0) dispatch_command(g_message);
+        else if (g_message_handler) g_message_handler(g_message);
     }
     return S_OK;
 }
@@ -396,6 +422,20 @@ int reverie_webview_navigate(const char *url) {
 
 const char *reverie_webview_last_blocked(void) {
     return g_last_blocked;
+}
+
+void reverie_webview_register_command(const char *name, void (*handler)(const char *arg)) {
+    if (!name || !handler) return;
+    for (int i = 0; i < g_command_count; i++) {
+        if (strcmp(g_commands[i].name, name) == 0) {
+            g_commands[i].handler = handler;
+            return;
+        }
+    }
+    if (g_command_count >= REVERIE_MAX_COMMANDS) return;
+    snprintf(g_commands[g_command_count].name, sizeof(g_commands[g_command_count].name), "%s", name);
+    g_commands[g_command_count].handler = handler;
+    g_command_count++;
 }
 
 void reverie_webview_stop(void) {

@@ -20,6 +20,7 @@ extern {
     fn reverie_webview_allow_host(host: str);
     fn reverie_webview_navigate(url: str) -> i32;
     fn reverie_webview_last_blocked() -> str;
+    fn reverie_webview_register_command(name: str, handler: fn(str));
 }
 
 // Host `url` inside `hwnd`. Returns 0 once the request is dispatched; the
@@ -76,4 +77,10 @@ fn reverie_navigate(url: str) -> i32 {
 // URI of the most recent blocked navigation, or "".
 fn reverie_last_blocked() -> str {
     return reverie_webview_last_blocked();
+}
+
+// Register a command. The page sends "name" or "name:arg"; only registered
+// names are routed (the registry is the allowlist).
+fn reverie_register_command(name: str, handler: fn(str)) {
+    reverie_webview_register_command(name, handler);
 }
