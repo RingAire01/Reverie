@@ -55,8 +55,11 @@ runtime in `src-reverie/`.
 
 ```sh
 pnpm create @ringaire/reverie my-app --template react
-# templates: vanilla, react, vue, next
+# templates: vanilla, react, vue, next (react/vue/next are TypeScript)
 ```
+
+TypeScript apps get a typed IPC bridge (`src/reverie.ts`): `invoke(cmd, arg)` to
+call native commands and `onMessage(handler)` for replies.
 
 Each generated app is self-contained: it ships the RingEcho runtime
 (`src-reverie/`), the C shim (`shim/`) and the build scripts (`scripts/`).

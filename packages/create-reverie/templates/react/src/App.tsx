@@ -1,9 +1,7 @@
-"use client";
-
 import { useEffect, useState } from "react";
-import { invoke, onMessage, isReverie } from "../reverie.ts";
+import { invoke, onMessage, isReverie } from "./reverie.ts";
 
-export default function Page() {
+export default function App() {
   const [fromNative, setFromNative] = useState("");
   const [running, setRunning] = useState(false);
 

@@ -24,6 +24,16 @@ pnpm --filter @ringaire/create-reverie publish --access public
 
 `vanilla`, `react`, `vue`, `next`.
 
+The `react`, `vue` and `next` templates are TypeScript. Every app gets a typed
+bridge at `src/reverie.ts`:
+
+```ts
+import { invoke, onMessage, isReverie } from "./reverie.ts";
+
+invoke("greet", "world");        // -> native hears "greet:world"
+const off = onMessage((msg) => console.log(msg)); // native -> page
+```
+
 ## Layout produced
 
 ```

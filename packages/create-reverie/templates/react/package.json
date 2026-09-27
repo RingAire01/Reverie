@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "reverie:shim": "powershell -File shim/build.ps1",
     "reverie:build": "powershell -File scripts/build-app.ps1",
@@ -16,7 +16,10 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "~6.0.2",
     "vite": "^8.3.0"
   }
 }
