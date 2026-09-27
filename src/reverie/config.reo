@@ -14,6 +14,12 @@ fn reverie_cfg_decorations() -> i32 { return 1; }
 fn reverie_cfg_resizable() -> i32 { return 1; }
 fn reverie_cfg_always_on_top() -> i32 { return 0; }
 fn reverie_cfg_fullscreen() -> i32 { return 0; }
+fn reverie_cfg_x() -> i32 { return -1; }
+fn reverie_cfg_y() -> i32 { return -1; }
+fn reverie_cfg_center() -> i32 { return 1; }
+fn reverie_cfg_min_width() -> i32 { return 0; }
+fn reverie_cfg_min_height() -> i32 { return 0; }
+fn reverie_cfg_opacity() -> i32 { return 255; }
 
 fn reverie_cfg_apply_security() {
     reverie_allow_host("reverie.local");

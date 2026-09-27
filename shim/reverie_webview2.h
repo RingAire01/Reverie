@@ -24,6 +24,11 @@ void reverie_log_write(const char *message);
 int reverie_tray_add(void *hwnd, const char *tooltip);
 void reverie_tray_remove(void);
 
+/* Enforce a minimum/maximum content size on `hwnd` by subclassing it and
+ * answering WM_GETMINMAXINFO. Zero means "no constraint". Returns 0 on success. */
+int reverie_window_set_limits(void *hwnd, int min_width, int min_height,
+                              int max_width, int max_height);
+
 /* Navigation policy: only these hosts (plus data:/about:/blob:) may load.
  * "reverie.local" and "localhost" are allowed by default. */
 void reverie_webview_allow_host(const char *host);

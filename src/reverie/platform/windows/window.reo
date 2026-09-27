@@ -3,9 +3,26 @@ module reverie_windows_window {
 // Reverie / Windows backend - window lifecycle.
 
 // WS_OVERLAPPEDWINDOW = 0x00CF0000, WS_POPUP = 0x80000000, WS_EX_TOPMOST = 8,
-// SW_SHOW = 5, SW_MAXIMIZE = 3.
+// WS_EX_LAYERED = 0x00080000, SW_HIDE = 0, SW_SHOW = 5, SW_MAXIMIZE = 3,
+// SW_MINIMIZE = 6, SW_RESTORE = 9, LWA_ALPHA = 2.
 fn reverie_ws_overlappedwindow() -> u32 { return 13565952; }
+fn reverie_ws_ex_layered() -> u32 { return 524288; }
 fn reverie_sw_show() -> i32 { return 5; }
+fn reverie_sw_hide() -> i32 { return 0; }
+fn reverie_sw_maximize() -> i32 { return 3; }
+fn reverie_sw_minimize() -> i32 { return 6; }
+fn reverie_sw_restore() -> i32 { return 9; }
+
+// HWND_TOPMOST / HWND_NOTOPMOST are (HWND)-1 / (HWND)-2.
+fn reverie_hwnd_topmost() -> u64 { return (0 - 1) as u64; }
+fn reverie_hwnd_notopmost() -> u64 { return (0 - 2) as u64; }
+
+// Minimal/maximum content size, enforced by the shim (WM_GETMINMAXINFO). Zero
+// means "no constraint".
+extern {
+    fn reverie_window_set_limits(hwnd: u64, min_width: i32, min_height: i32,
+                                 max_width: i32, max_height: i32) -> i32;
+}
 
 // Window style/ex-style derived from configuration. Fullscreen and borderless
 // use WS_POPUP; non-resizable clears WS_THICKFRAME and WS_MAXIMIZEBOX.
@@ -25,10 +42,15 @@ fn reverie_window_style() -> u32 {
 }
 
 fn reverie_window_exstyle() -> u32 {
+    let ex: u32 = 0;
     if reverie_cfg_always_on_top() != 0 {
-        return 8;
+        ex = ex | 8;
     }
-    return 0;
+    // WS_EX_LAYERED must be present before SetLayeredWindowAttributes works.
+    if reverie_cfg_opacity() < 255 {
+        ex = ex | reverie_ws_ex_layered();
+    }
+    return ex;
 }
 
 fn reverie_window_show_cmd() -> i32 {
@@ -77,8 +99,19 @@ fn reverie_register_class(class_name: str, proc: fn(u64, u32, u64, u64) -> u64) 
 fn reverie_create_window(class_name: str, title: str, width: i32, height: i32,
                          proc: fn(u64, u32, u64, u64) -> u64) -> u64 {
     reverie_register_class(class_name, proc);
+    let x: i32 = reverie_cfg_x();
+    let y: i32 = reverie_cfg_y();
+    if x < 0 || y < 0 {
+        if reverie_cfg_center() != 0 {
+            x = (GetSystemMetrics(0) - width) / 2;
+            y = (GetSystemMetrics(1) - height) / 2;
+        } else {
+            x = 120;
+            y = 120;
+        }
+    }
     let hwnd: u64 = CreateWindowExA(reverie_window_exstyle(), class_name, title,
-        reverie_window_style(), 120, 120, width, height, 0, 0, GetModuleHandleA(0), 0);
+        reverie_window_style(), x, y, width, height, 0, 0, GetModuleHandleA(0), 0);
     ShowWindow(hwnd, reverie_window_show_cmd());
     UpdateWindow(hwnd);
     return hwnd;
@@ -87,6 +120,54 @@ fn reverie_create_window(class_name: str, title: str, width: i32, height: i32,
 // Posts WM_TIMER once after `ms`, which the default procedure turns into an exit.
 fn reverie_quit_after(hwnd: u64, ms: u32) {
     SetTimer(hwnd, 1, ms, 0);
+}
+
+// ---- runtime window control ----
+
+fn reverie_window_set_title(hwnd: u64, title: str) -> i32 {
+    return SetWindowTextA(hwnd, title);
+}
+
+// Move without resizing: SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE = 21.
+fn reverie_window_set_position(hwnd: u64, x: i32, y: i32) -> i32 {
+    return SetWindowPos(hwnd, 0, x, y, 0, 0, 21);
+}
+
+// Resize without moving: SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE = 22.
+fn reverie_window_set_size(hwnd: u64, width: i32, height: i32) -> i32 {
+    return SetWindowPos(hwnd, 0, 0, 0, width, height, 22);
+}
+
+fn reverie_window_center(hwnd: u64, width: i32, height: i32) -> i32 {
+    let x: i32 = (GetSystemMetrics(0) - width) / 2;
+    let y: i32 = (GetSystemMetrics(1) - height) / 2;
+    return reverie_window_set_position(hwnd, x, y);
+}
+
+fn reverie_window_set_opacity(hwnd: u64, alpha: i32) -> i32 {
+    let a: i32 = alpha;
+    if a < 0 { a = 0; }
+    if a > 255 { a = 255; }
+    return SetLayeredWindowAttributes(hwnd, 0, a as u32, 2);
+}
+
+// SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE = 19.
+fn reverie_window_set_always_on_top(hwnd: u64, on: i32) -> i32 {
+    let target: u64 = reverie_hwnd_notopmost();
+    if on != 0 { target = reverie_hwnd_topmost(); }
+    return SetWindowPos(hwnd, target, 0, 0, 0, 0, 19);
+}
+
+fn reverie_window_minimize(hwnd: u64) -> i32 { return ShowWindow(hwnd, reverie_sw_minimize()); }
+fn reverie_window_maximize(hwnd: u64) -> i32 { return ShowWindow(hwnd, reverie_sw_maximize()); }
+fn reverie_window_restore(hwnd: u64) -> i32 { return ShowWindow(hwnd, reverie_sw_restore()); }
+fn reverie_window_show(hwnd: u64) -> i32 { return ShowWindow(hwnd, reverie_sw_show()); }
+fn reverie_window_hide(hwnd: u64) -> i32 { return ShowWindow(hwnd, reverie_sw_hide()); }
+fn reverie_window_close(hwnd: u64) -> i32 { return PostMessageA(hwnd, reverie_wm_close(), 0, 0); }
+
+// Minimum content size, enforced by the shim through WM_GETMINMAXINFO.
+fn reverie_window_set_min_size(hwnd: u64, width: i32, height: i32) -> i32 {
+    return reverie_window_set_limits(hwnd, width, height, 0, 0);
 }
 
 // Menu bar. Build popups with reverie_menu_popup, add items with

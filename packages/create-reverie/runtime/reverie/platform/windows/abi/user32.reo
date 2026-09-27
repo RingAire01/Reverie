@@ -20,6 +20,11 @@ extern {
     fn IsWindow(hwnd: u64) -> i32;
     fn GetWindowRect(hwnd: u64, rect: &Rect) -> i32;
     fn GetWindowLongA(hwnd: u64, index: i32) -> i32;
+    fn SetWindowPos(hwnd: u64, after: u64, x: i32, y: i32, cx: i32, cy: i32, flags: u32) -> i32;
+    fn SetWindowTextA(hwnd: u64, text: str) -> i32;
+    fn GetSystemMetrics(index: i32) -> i32;
+    fn SetLayeredWindowAttributes(hwnd: u64, color_key: u32, alpha: u32, flags: u32) -> i32;
+    fn PostMessageA(hwnd: u64, msg: u32, wparam: u64, lparam: u64) -> i32;
     fn CreateMenu() -> u64;
     fn CreatePopupMenu() -> u64;
     fn AppendMenuA(menu: u64, flags: u32, id: u64, item: str) -> i32;

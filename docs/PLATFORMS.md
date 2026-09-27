@@ -79,7 +79,7 @@ Runtime features, roughly in dependency order:
 - [x] IPC bridge (post message / poll on Windows; invoke/events/channels later)
 - [x] Config file + schema (`reverie.conf` → generated `config.reo`)
 - [x] Permissions / capabilities model (nav allowlist, CSP, command allowlist)
-- [x] Multiple windows, DPI, window options
+- [x] Multiple windows, DPI, window options (position/center, min size, opacity, decorations/resizable/topmost/fullscreen, runtime control API)
 - [x] Menus, tray, native dialogs (open/save)
 - [x] Dev-server integration and HMR
 - [x] Bundling: one-command build (`scripts/build-app.ps1`) with runtime DLLs

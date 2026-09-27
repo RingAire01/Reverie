@@ -393,6 +393,59 @@ static int run_dialog(int save, const char *pattern) {
 const char *reverie_dialog_open(const char *pattern) { run_dialog(0, pattern); return g_dialog_path; }
 const char *reverie_dialog_save(const char *pattern) { run_dialog(1, pattern); return g_dialog_path; }
 
+/* ---- per-window size limits (subclassed via WM_GETMINMAXINFO) ---- */
+
+typedef struct {
+    HWND hwnd;
+    int used;
+    int min_w, min_h, max_w, max_h;
+    WNDPROC original;
+} ReverieLimits;
+
+static ReverieLimits g_limits[REVERIE_MAX_WINDOWS];
+
+static ReverieLimits *find_limits(HWND hwnd) {
+    for (int i = 0; i < REVERIE_MAX_WINDOWS; i++)
+        if (g_limits[i].used && g_limits[i].hwnd == hwnd) return &g_limits[i];
+    return NULL;
+}
+
+static LRESULT CALLBACK limits_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
+    ReverieLimits *l = find_limits(hwnd);
+    if (l && msg == WM_GETMINMAXINFO) {
+        MINMAXINFO *mmi = (MINMAXINFO *)lparam;
+        if (l->min_w > 0) mmi->ptMinTrackSize.x = l->min_w;
+        if (l->min_h > 0) mmi->ptMinTrackSize.y = l->min_h;
+        if (l->max_w > 0) mmi->ptMaxTrackSize.x = l->max_w;
+        if (l->max_h > 0) mmi->ptMaxTrackSize.y = l->max_h;
+        return 0;
+    }
+    if (l && l->original) return CallWindowProcA(l->original, hwnd, msg, wparam, lparam);
+    return DefWindowProcA(hwnd, msg, wparam, lparam);
+}
+
+int reverie_window_set_limits(void *hwnd, int min_w, int min_h, int max_w, int max_h) {
+    if (!hwnd) return -1;
+    ReverieLimits *l = find_limits((HWND)hwnd);
+    if (!l) {
+        for (int i = 0; i < REVERIE_MAX_WINDOWS; i++) {
+            if (!g_limits[i].used) { l = &g_limits[i]; break; }
+        }
+        if (!l) { set_error("too many windows"); return -1; }
+        memset(l, 0, sizeof(*l));
+        l->used = 1;
+        l->hwnd = (HWND)hwnd;
+        l->original = (WNDPROC)SetWindowLongPtrA((HWND)hwnd, GWLP_WNDPROC, (LONG_PTR)limits_proc);
+    }
+    l->min_w = min_w;
+    l->min_h = min_h;
+    l->max_w = max_w;
+    l->max_h = max_h;
+    SetWindowPos((HWND)hwnd, NULL, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+    return 0;
+}
+
 void reverie_webview_allow_host(const char *host) {
     if (!host) return;
     ensure_default_hosts();

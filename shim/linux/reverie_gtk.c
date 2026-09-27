@@ -525,6 +525,88 @@ const char *reverie_linux_webview_error(void) {
     return g_error;
 }
 
+/* ---- window control ---- */
+
+void reverie_linux_window_set_title(void *hwnd, const char *title) {
+    ReverieWin *w = find_window(hwnd);
+    if (w && title) gtk_window_set_title(GTK_WINDOW(w->window), title);
+}
+
+void reverie_linux_window_set_position(void *hwnd, int x, int y) {
+    ReverieWin *w = find_window(hwnd);
+    if (w) gtk_window_move(GTK_WINDOW(w->window), x, y);
+}
+
+void reverie_linux_window_set_size(void *hwnd, int width, int height) {
+    ReverieWin *w = find_window(hwnd);
+    if (w) gtk_window_resize(GTK_WINDOW(w->window), width, height);
+}
+
+void reverie_linux_window_center(void *hwnd, int width, int height) {
+    ReverieWin *w = find_window(hwnd);
+    if (!w) return;
+    gtk_window_resize(GTK_WINDOW(w->window), width, height);
+    gtk_window_set_position(GTK_WINDOW(w->window), GTK_WIN_POS_CENTER);
+}
+
+void reverie_linux_window_set_opacity(void *hwnd, int alpha) {
+    ReverieWin *w = find_window(hwnd);
+    if (!w) return;
+    if (alpha < 0) alpha = 0;
+    if (alpha > 255) alpha = 255;
+    gtk_widget_set_opacity(w->window, (double)alpha / 255.0);
+}
+
+void reverie_linux_window_set_always_on_top(void *hwnd, int on) {
+    ReverieWin *w = find_window(hwnd);
+    if (w) gtk_window_set_keep_above(GTK_WINDOW(w->window), on != 0);
+}
+
+void reverie_linux_window_minimize(void *hwnd) {
+    ReverieWin *w = find_window(hwnd);
+    if (w) gtk_window_iconify(GTK_WINDOW(w->window));
+}
+
+void reverie_linux_window_maximize(void *hwnd) {
+    ReverieWin *w = find_window(hwnd);
+    if (w) gtk_window_maximize(GTK_WINDOW(w->window));
+}
+
+void reverie_linux_window_restore(void *hwnd) {
+    ReverieWin *w = find_window(hwnd);
+    if (!w) return;
+    gtk_window_deiconify(GTK_WINDOW(w->window));
+    gtk_window_unmaximize(GTK_WINDOW(w->window));
+}
+
+void reverie_linux_window_show(void *hwnd) {
+    ReverieWin *w = find_window(hwnd);
+    if (w) gtk_widget_show_all(w->window);
+}
+
+void reverie_linux_window_hide(void *hwnd) {
+    ReverieWin *w = find_window(hwnd);
+    if (w) gtk_widget_hide(w->window);
+}
+
+void reverie_linux_window_close(void *hwnd) {
+    ReverieWin *w = find_window(hwnd);
+    if (w) gtk_window_close(GTK_WINDOW(w->window));
+}
+
+void reverie_linux_window_set_limits(void *hwnd, int min_w, int min_h, int max_w, int max_h) {
+    ReverieWin *w = find_window(hwnd);
+    if (!w) return;
+    GdkGeometry geo;
+    memset(&geo, 0, sizeof(geo));
+    geo.min_width = min_w;
+    geo.min_height = min_h;
+    geo.max_width = max_w > 0 ? max_w : G_MAXINT;
+    geo.max_height = max_h > 0 ? max_h : G_MAXINT;
+    gtk_window_set_geometry_hints(GTK_WINDOW(w->window), NULL, &geo,
+                                  GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE);
+}
+
 /* ---- tray (unsupported on plain GTK) ---- */
 
 int reverie_linux_tray_add(void *hwnd, const char *tooltip) {

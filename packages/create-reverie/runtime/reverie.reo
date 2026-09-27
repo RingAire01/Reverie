@@ -14,6 +14,12 @@ fn reverie_launch() -> u64 {
     reverie_cfg_apply_security();
     let hwnd: u64 = reverie_create_window("ReverieWindow", reverie_cfg_title(),
         reverie_cfg_width(), reverie_cfg_height(), reverie_default_proc);
+    if reverie_cfg_min_width() > 0 || reverie_cfg_min_height() > 0 {
+        reverie_window_set_min_size(hwnd, reverie_cfg_min_width(), reverie_cfg_min_height());
+    }
+    if reverie_cfg_opacity() < 255 {
+        reverie_window_set_opacity(hwnd, reverie_cfg_opacity());
+    }
     reverie_asset_folder(hwnd, reverie_cfg_asset_host(), reverie_cfg_asset_folder());
     reverie_webview_open(hwnd, reverie_cfg_window_url());
     return hwnd;

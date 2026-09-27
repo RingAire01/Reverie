@@ -87,6 +87,22 @@ void reverie_linux_tray_remove(void);
 const char *reverie_linux_dialog_open(const char *pattern);
 const char *reverie_linux_dialog_save(const char *pattern);
 
+/* Runtime window control, mirroring the Windows API. */
+void reverie_linux_window_set_title(void *hwnd, const char *title);
+void reverie_linux_window_set_position(void *hwnd, int x, int y);
+void reverie_linux_window_set_size(void *hwnd, int width, int height);
+void reverie_linux_window_center(void *hwnd, int width, int height);
+void reverie_linux_window_set_opacity(void *hwnd, int alpha);
+void reverie_linux_window_set_always_on_top(void *hwnd, int on);
+void reverie_linux_window_minimize(void *hwnd);
+void reverie_linux_window_maximize(void *hwnd);
+void reverie_linux_window_restore(void *hwnd);
+void reverie_linux_window_show(void *hwnd);
+void reverie_linux_window_hide(void *hwnd);
+void reverie_linux_window_close(void *hwnd);
+void reverie_linux_window_set_limits(void *hwnd, int min_width, int min_height,
+                                     int max_width, int max_height);
+
 #ifdef __cplusplus
 }
 #endif

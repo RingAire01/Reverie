@@ -43,10 +43,25 @@ module reverie_macos {
     }
     fn reverie_run_loop() -> i32 { return reverie_mac_run_loop(); }
     fn reverie_quit_after(hwnd: u64, ms: u32) { reverie_mac_quit_after(hwnd, ms); }
+    extern { fn reverie_mac_default_proc(hwnd: u64, msg: u32, wparam: u64, lparam: u64) -> u64; }
     fn reverie_default_proc(hwnd: u64, msg: u32, wparam: u64, lparam: u64) -> u64 {
         return reverie_mac_default_proc(hwnd, msg, wparam, lparam);
     }
-    extern { fn reverie_mac_default_proc(hwnd: u64, msg: u32, wparam: u64, lparam: u64) -> u64; }
+
+    // Window control (skeleton: no-ops until the Cocoa shim lands).
+    fn reverie_window_set_title(hwnd: u64, title: str) -> i32 { return 0; }
+    fn reverie_window_set_position(hwnd: u64, x: i32, y: i32) -> i32 { return 0; }
+    fn reverie_window_set_size(hwnd: u64, width: i32, height: i32) -> i32 { return 0; }
+    fn reverie_window_center(hwnd: u64, width: i32, height: i32) -> i32 { return 0; }
+    fn reverie_window_set_opacity(hwnd: u64, alpha: i32) -> i32 { return 0; }
+    fn reverie_window_set_always_on_top(hwnd: u64, on: i32) -> i32 { return 0; }
+    fn reverie_window_minimize(hwnd: u64) -> i32 { return 0; }
+    fn reverie_window_maximize(hwnd: u64) -> i32 { return 0; }
+    fn reverie_window_restore(hwnd: u64) -> i32 { return 0; }
+    fn reverie_window_show(hwnd: u64) -> i32 { return 0; }
+    fn reverie_window_hide(hwnd: u64) -> i32 { return 0; }
+    fn reverie_window_close(hwnd: u64) -> i32 { return 0; }
+    fn reverie_window_set_min_size(hwnd: u64, width: i32, height: i32) -> i32 { return 0; }
 
     fn reverie_webview_open(hwnd: u64, url: str) -> i32 { return reverie_mac_webview_open(hwnd, url); }
     fn reverie_webview_status(hwnd: u64) -> i32 { return reverie_mac_webview_state(hwnd); }

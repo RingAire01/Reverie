@@ -73,7 +73,25 @@ function Flag($value, $default) {
 $text += "fn reverie_cfg_decorations() -> i32 { return $(Flag $json.window.decorations 1); }`n"
 $text += "fn reverie_cfg_resizable() -> i32 { return $(Flag $json.window.resizable 1); }`n"
 $text += "fn reverie_cfg_always_on_top() -> i32 { return $(Flag $json.window.alwaysOnTop 0); }`n"
-$text += "fn reverie_cfg_fullscreen() -> i32 { return $(Flag $json.window.fullscreen 0); }`n`n"
+$text += "fn reverie_cfg_fullscreen() -> i32 { return $(Flag $json.window.fullscreen 0); }`n"
+
+$winX = -1
+if ($null -ne $json.window.x) { $winX = [int]$json.window.x }
+$winY = -1
+if ($null -ne $json.window.y) { $winY = [int]$json.window.y }
+$minW = 0
+if ($null -ne $json.window.minWidth) { $minW = [int]$json.window.minWidth }
+$minH = 0
+if ($null -ne $json.window.minHeight) { $minH = [int]$json.window.minHeight }
+$opacity = 255
+if ($null -ne $json.window.opacity) { $opacity = [int]$json.window.opacity }
+
+$text += "fn reverie_cfg_x() -> i32 { return $winX; }`n"
+$text += "fn reverie_cfg_y() -> i32 { return $winY; }`n"
+$text += "fn reverie_cfg_center() -> i32 { return $(Flag $json.window.center 1); }`n"
+$text += "fn reverie_cfg_min_width() -> i32 { return $minW; }`n"
+$text += "fn reverie_cfg_min_height() -> i32 { return $minH; }`n"
+$text += "fn reverie_cfg_opacity() -> i32 { return $opacity; }`n`n"
 $text += "fn reverie_cfg_apply_security() {`n"
 foreach ($allowedHost in $hosts) {
     $text += "    reverie_allow_host(`"$(Esc $allowedHost)`");`n"

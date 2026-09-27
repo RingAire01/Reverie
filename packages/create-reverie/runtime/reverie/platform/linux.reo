@@ -40,12 +40,65 @@ module reverie_linux {
 
     fn reverie_create_window(class_name: str, title: str, width: i32, height: i32,
                              proc: fn(u64, u32, u64, u64) -> u64) -> u64 {
-        return reverie_linux_create_window(class_name, title, width, height);
+        let hwnd: u64 = reverie_linux_create_window(class_name, title, width, height);
+        let x: i32 = reverie_cfg_x();
+        let y: i32 = reverie_cfg_y();
+        if x >= 0 && y >= 0 {
+            reverie_linux_window_set_position(hwnd, x, y);
+        } else if reverie_cfg_center() != 0 {
+            reverie_linux_window_center(hwnd, width, height);
+        }
+        return hwnd;
     }
     fn reverie_run_loop() -> i32 { return reverie_linux_run_loop(); }
     fn reverie_quit_after(hwnd: u64, ms: u32) { reverie_linux_quit_after(hwnd, ms); }
     fn reverie_default_proc(hwnd: u64, msg: u32, wparam: u64, lparam: u64) -> u64 {
         return reverie_linux_default_proc(hwnd, msg, wparam, lparam);
+    }
+
+    extern {
+        fn reverie_linux_window_set_title(hwnd: u64, title: str);
+        fn reverie_linux_window_set_position(hwnd: u64, x: i32, y: i32);
+        fn reverie_linux_window_set_size(hwnd: u64, width: i32, height: i32);
+        fn reverie_linux_window_center(hwnd: u64, width: i32, height: i32);
+        fn reverie_linux_window_set_opacity(hwnd: u64, alpha: i32);
+        fn reverie_linux_window_set_always_on_top(hwnd: u64, on: i32);
+        fn reverie_linux_window_minimize(hwnd: u64);
+        fn reverie_linux_window_maximize(hwnd: u64);
+        fn reverie_linux_window_restore(hwnd: u64);
+        fn reverie_linux_window_show(hwnd: u64);
+        fn reverie_linux_window_hide(hwnd: u64);
+        fn reverie_linux_window_close(hwnd: u64);
+        fn reverie_linux_window_set_limits(hwnd: u64, min_width: i32, min_height: i32,
+                                           max_width: i32, max_height: i32);
+    }
+
+    fn reverie_window_set_title(hwnd: u64, title: str) -> i32 {
+        reverie_linux_window_set_title(hwnd, title); return 0;
+    }
+    fn reverie_window_set_position(hwnd: u64, x: i32, y: i32) -> i32 {
+        reverie_linux_window_set_position(hwnd, x, y); return 0;
+    }
+    fn reverie_window_set_size(hwnd: u64, width: i32, height: i32) -> i32 {
+        reverie_linux_window_set_size(hwnd, width, height); return 0;
+    }
+    fn reverie_window_center(hwnd: u64, width: i32, height: i32) -> i32 {
+        reverie_linux_window_center(hwnd, width, height); return 0;
+    }
+    fn reverie_window_set_opacity(hwnd: u64, alpha: i32) -> i32 {
+        reverie_linux_window_set_opacity(hwnd, alpha); return 0;
+    }
+    fn reverie_window_set_always_on_top(hwnd: u64, on: i32) -> i32 {
+        reverie_linux_window_set_always_on_top(hwnd, on); return 0;
+    }
+    fn reverie_window_minimize(hwnd: u64) -> i32 { reverie_linux_window_minimize(hwnd); return 0; }
+    fn reverie_window_maximize(hwnd: u64) -> i32 { reverie_linux_window_maximize(hwnd); return 0; }
+    fn reverie_window_restore(hwnd: u64) -> i32 { reverie_linux_window_restore(hwnd); return 0; }
+    fn reverie_window_show(hwnd: u64) -> i32 { reverie_linux_window_show(hwnd); return 0; }
+    fn reverie_window_hide(hwnd: u64) -> i32 { reverie_linux_window_hide(hwnd); return 0; }
+    fn reverie_window_close(hwnd: u64) -> i32 { reverie_linux_window_close(hwnd); return 0; }
+    fn reverie_window_set_min_size(hwnd: u64, width: i32, height: i32) -> i32 {
+        reverie_linux_window_set_limits(hwnd, width, height, 0, 0); return 0;
     }
 
     fn reverie_webview_open(hwnd: u64, url: str) -> i32 { return reverie_linux_webview_open(hwnd, url); }
