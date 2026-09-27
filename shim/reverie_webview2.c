@@ -28,6 +28,7 @@ typedef struct {
     ICoreWebView2 *webview;
     int state;
     int transparent;
+    int theme;
 
     char initial_url[2048];
     int has_pending_folder;
@@ -229,6 +230,15 @@ static HRESULT STDMETHODCALLTYPE ctrl_invoke(ICoreWebView2CreateCoreWebView2Cont
     if (FAILED(hr) || !webview) { set_error("get_CoreWebView2 failed"); w->state = -21; return S_OK; }
     w->webview = webview;
 
+    if (w->theme != 0) {
+        const wchar_t *mode = (w->theme == 2) ? L"dark" : L"light";
+        wchar_t theme_script[256];
+        swprintf(theme_script, 256,
+                 L"document.documentElement.dataset.reverieTheme='%ls';"
+                 L"document.documentElement.style.colorScheme='%ls';", mode, mode);
+        w->webview->lpVtbl->AddScriptToExecuteOnDocumentCreated(w->webview, theme_script, NULL);
+    }
+
     w->msg_handler.lpVtbl = &g_msg_vtbl;
     w->msg_handler.owner = w;
     w->webview->lpVtbl->add_WebMessageReceived(
@@ -382,7 +392,10 @@ int reverie_window_set_backdrop(void *hwnd, int kind) {
 
 /* mode: 0 system/unchanged, 1 light, 2 dark. */
 int reverie_window_set_theme(void *hwnd, int mode) {
-    if (!hwnd || mode == 0) return 0;
+    if (!hwnd) return -1;
+    ReverieWindow *w = find_window((HWND)hwnd);
+    if (w) w->theme = mode;
+    if (mode == 0) return 0;
     HMODULE dwm = LoadLibraryW(L"dwmapi.dll");
     if (!dwm) return -1;
     PFN_DwmSetWindowAttribute set_attr =

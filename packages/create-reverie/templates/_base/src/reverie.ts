@@ -42,6 +42,10 @@ const webkit = (): ReverieBridge | undefined => window.webkit?.messageHandlers?.
 /** True when running inside the Reverie runtime. */
 export const isReverie = (): boolean => webview2() !== undefined || webkit() !== undefined;
 
+/** Colour scheme injected by the host: "light", "dark", or "system". */
+export const reverieTheme = (): string =>
+  (typeof document !== "undefined" && document.documentElement.dataset.reverieTheme) || "system";
+
 /** Call a native command. `invoke("greet", "world")` sends "greet:world". */
 export function invoke(command: string, arg?: string): void {
   const message = arg === undefined ? command : `${command}:${arg}`;

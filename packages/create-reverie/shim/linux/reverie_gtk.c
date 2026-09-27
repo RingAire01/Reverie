@@ -22,6 +22,7 @@ typedef struct {
     WebKitWebView *webview;
     WebKitUserContentManager *ucm;
     int state; /* 0 idle, 2 created, 3 loaded, <0 failed */
+    int theme; /* 0 system, 1 light, 2 dark */
     char message[4096];
     int has_message;
 } ReverieWin;
@@ -416,6 +417,19 @@ int reverie_linux_webview_open(void *hwnd, const char *url) {
         webkit_user_content_manager_register_script_message_handler(w->ucm, "reverie");
         g_signal_connect(w->ucm, "script-message-received::reverie", G_CALLBACK(on_script_message), w);
 
+        if (w->theme != 0) {
+            const char *mode = w->theme == 2 ? "dark" : "light";
+            char script[256];
+            snprintf(script, sizeof(script),
+                     "document.documentElement.dataset.reverieTheme='%s';"
+                     "document.documentElement.style.colorScheme='%s';", mode, mode);
+            WebKitUserScript *us = webkit_user_script_new(
+                script, WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES,
+                WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, NULL, NULL);
+            webkit_user_content_manager_add_script(w->ucm, us);
+            webkit_user_script_unref(us);
+        }
+
         w->webview = WEBKIT_WEB_VIEW(webkit_web_view_new_with_user_content_manager(w->ucm));
         g_signal_connect(w->webview, "load-changed", G_CALLBACK(on_load_changed), w);
         g_signal_connect(w->webview, "load-failed", G_CALLBACK(on_load_failed), w);
@@ -630,11 +644,20 @@ void reverie_linux_window_set_backdrop(void *hwnd, int kind) {
 }
 
 void reverie_linux_window_set_theme(void *hwnd, int mode) {
-    (void)hwnd;
+    ReverieWin *w = find_window(hwnd);
+    if (w) w->theme = mode;
     if (mode == 0) return;
     GtkSettings *settings = gtk_settings_get_default();
     if (settings)
         g_object_set(settings, "gtk-application-prefer-dark-theme", mode == 2, NULL);
+    if (w && w->webview) {
+        const char *m = mode == 2 ? "dark" : "light";
+        char script[256];
+        snprintf(script, sizeof(script),
+                 "document.documentElement.dataset.reverieTheme='%s';"
+                 "document.documentElement.style.colorScheme='%s';", m, m);
+        eval_js(w->webview, script);
+    }
 }
 
 static int reverie_state_path(char *out, size_t cap) {
