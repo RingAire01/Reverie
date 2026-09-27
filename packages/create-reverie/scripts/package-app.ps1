@@ -1,15 +1,16 @@
-# Build a Reverie app and wrap it in an Inno Setup installer.
+# Reverie Packager (Windows): release build + one or more bundle formats.
 #
 #   powershell -File scripts/package-app.ps1 [-Name app] [-Version 0.1.0]
+#                                            [-Formats inno,msix]
 #
-# Produces src-reverie/target/release/<Name>-setup.exe, which installs the
-# executable, the runtime DLLs and the bundled frontend (dist/) per-user.
-#
-# Requires Inno Setup 6 (ISCC.exe).
+# Formats: inno (Inno Setup .exe), msix (.msix / layout).
+# macOS (.app/.dmg) and Linux (AppImage/.deb/.rpm) are produced by
+# scripts/package-app.sh on those hosts.
 param(
     [string]$Name = "app",
     [string]$Version = "0.1.0",
     [string]$Publisher = "Reverie",
+    [string[]]$Formats = @('inno', 'msix'),
     [string]$Rev = $env:REV,
     [string]$CC = $env:REO_CC,
     [string]$Ar = $env:REO_AR
@@ -18,53 +19,13 @@ $ErrorActionPreference = 'Continue'
 
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $appRoot = Split-Path -Parent $here
-$srcReve = Join-Path $appRoot 'src-reverie'
-$outDir = Join-Path $srcReve 'target/release'
+$exe = Join-Path $appRoot "src-reverie/target/release/$Name.exe"
 
-# 1. Release build (exe + DLLs + dist).
 & (Join-Path $here 'build-app.ps1') -Name $Name -Profile release -Rev $Rev -CC $CC -Ar $Ar
-if (-not (Test-Path (Join-Path $outDir "$Name.exe"))) { throw 'release build failed' }
+if (-not (Test-Path $exe)) { throw 'release build failed' }
 
-# 2. Locate the Inno Setup compiler.
-$candidates = @(
-    (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe'),
-    (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
-    (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe')
-)
-$iscc = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-if (-not $iscc) { throw 'Inno Setup 6 (ISCC.exe) not found; install it from https://jrsoftware.org/isdl.php' }
-
-# 3. Generate the installer script.
-$issPath = Join-Path $outDir "$Name.iss"
-$iss = @"
-[Setup]
-AppName=$Name
-AppVersion=$Version
-AppPublisher=$Publisher
-DefaultDirName={localappdata}\Programs\$Name
-DefaultGroupName=$Name
-OutputDir=$outDir
-OutputBaseFilename=$Name-setup
-PrivilegesRequired=lowest
-Compression=lzma2
-SolidCompression=yes
-WizardStyle=modern
-UninstallDisplayIcon={app}\$Name.exe
-
-[Files]
-Source: "$outDir\$Name.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "$outDir\WebView2Loader.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "$outDir\libwinpthread-1.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "$outDir\dist\*"; DestDir: "{app}\dist"; Flags: ignoreversion recursesubdirs createallsubdirs skipifsourcedoesntexist
-
-[Icons]
-Name: "{group}\$Name"; Filename: "{app}\$Name.exe"
-Name: "{group}\Uninstall $Name"; Filename: "{uninstallexe}"
-"@
-[System.IO.File]::WriteAllText($issPath, $iss, (New-Object System.Text.UTF8Encoding($false)))
-
-# 4. Compile the installer.
-& $iscc $issPath
-if ($LASTEXITCODE -ne 0) { throw 'Inno Setup compile failed' }
-
-Write-Host "installer: $(Join-Path $outDir "$Name-setup.exe")"
+foreach ($fmt in $Formats) {
+    $script = Join-Path $here "packager/$fmt.ps1"
+    if (-not (Test-Path $script)) { Write-Warning "unknown format '$fmt'"; continue }
+    & $script -Name $Name -Version $Version -Publisher $Publisher
+}

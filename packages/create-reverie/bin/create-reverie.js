@@ -106,9 +106,9 @@ export function scaffold({ target, template, force }) {
   if (existsSync(SCRIPTS)) {
     const dest = join(appDir, "scripts");
     mkdirSync(dest, { recursive: true });
-    for (const name of ["fetch-webview2.ps1", "build-app.ps1", "gen-config.ps1", "package-app.ps1"]) {
-      const from = join(SCRIPTS, name);
-      if (existsSync(from)) cpSync(from, join(dest, name));
+    for (const entry of readdirSync(SCRIPTS)) {
+      if (entry === "sync-runtime.mjs") continue;
+      cpSync(join(SCRIPTS, entry), join(dest, entry), { recursive: true });
     }
   }
 

@@ -1,7 +1,7 @@
 // Copy the repository's authoritative runtime, shim sources and build scripts
 // into the package, so a published create-reverie is self-contained.
 
-import { copyFileSync, cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,11 +27,11 @@ for (const name of ["reverie_webview2.c", "reverie_webview2.h", "build.ps1"]) {
 }
 console.log(`synced shim -> ${shimDest}`);
 
-// Build scripts.
+// Build + packaging scripts (everything except this sync script).
 const scriptsDest = join(PKG_ROOT, "scripts");
 mkdirSync(scriptsDest, { recursive: true });
-for (const name of ["fetch-webview2.ps1", "build-app.ps1", "gen-config.ps1", "package-app.ps1"]) {
-    const source = join(REPO_ROOT, "scripts", name);
-    if (existsSync(source)) copyFileSync(source, join(scriptsDest, name));
+for (const entry of readdirSync(join(REPO_ROOT, "scripts"))) {
+    if (entry === "sync-runtime.mjs") continue;
+    cpSync(join(REPO_ROOT, "scripts", entry), join(scriptsDest, entry), { recursive: true });
 }
 console.log(`synced scripts -> ${scriptsDest}`);
