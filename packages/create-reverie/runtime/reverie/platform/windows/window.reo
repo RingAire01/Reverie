@@ -1,11 +1,11 @@
-// Reverie - window lifecycle built on the ABI layer.
+// Reverie / Windows backend - window lifecycle.
 
-// WS_OVERLAPPEDWINDOW, SW_SHOW, and the demo timer id.
+// WS_OVERLAPPEDWINDOW, SW_SHOW.
 fn reverie_ws_overlappedwindow() -> u32 { return 13565952; }
 fn reverie_sw_show() -> i32 { return 5; }
 
 // Default window procedure: quits on WM_DESTROY, closes on WM_CLOSE, and quits
-// when the demo timer fires. App code can pass its own procedure instead.
+// when the demo timer fires. Apps may pass their own procedure instead.
 fn reverie_default_proc(hwnd: u64, msg: u32, wparam: u64, lparam: u64) -> u64 {
     if msg == reverie_wm_destroy() {
         PostQuitMessage(0);

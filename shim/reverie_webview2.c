@@ -26,6 +26,14 @@ static HWND g_hwnd = NULL;
 static char g_url[2048];
 static char g_error[256];
 static int  g_state = 0;
+static char g_message[4096];
+static int  g_has_message = 0;
+static EventRegistrationToken g_message_token;
+static char g_pending_host[256];
+static char g_pending_dir[1024];
+static int  g_has_pending_folder = 0;
+
+static int apply_folder(const char *host, const char *dir);
 
 static void set_error(const char *message) {
     snprintf(g_error, sizeof(g_error), "%s", message ? message : "unknown error");
@@ -81,6 +89,38 @@ static ICoreWebView2CreateCoreWebView2ControllerCompletedHandlerVtbl g_ctrl_vtbl
 };
 static struct { ICoreWebView2CreateCoreWebView2ControllerCompletedHandlerVtbl *lpVtbl; } g_ctrl_handler;
 
+/* ---- WebMessageReceived handler ---- */
+
+static HRESULT STDMETHODCALLTYPE msg_qi(ICoreWebView2WebMessageReceivedEventHandler *This,
+                                        REFIID riid, void **ppv) {
+    (void)riid;
+    if (!ppv) return E_POINTER;
+    *ppv = This;
+    return S_OK;
+}
+static ULONG STDMETHODCALLTYPE msg_addref(ICoreWebView2WebMessageReceivedEventHandler *This) {
+    (void)This; return 1;
+}
+static ULONG STDMETHODCALLTYPE msg_release(ICoreWebView2WebMessageReceivedEventHandler *This) {
+    (void)This; return 1;
+}
+static HRESULT STDMETHODCALLTYPE msg_invoke(ICoreWebView2WebMessageReceivedEventHandler *This,
+                                            ICoreWebView2 *sender,
+                                            ICoreWebView2WebMessageReceivedEventArgs *args) {
+    (void)This; (void)sender;
+    LPWSTR text = NULL;
+    if (args && SUCCEEDED(args->lpVtbl->TryGetWebMessageAsString(args, &text)) && text) {
+        WideCharToMultiByte(CP_UTF8, 0, text, -1, g_message, (int)sizeof(g_message), NULL, NULL);
+        g_has_message = 1;
+        CoTaskMemFree(text);
+    }
+    return S_OK;
+}
+static ICoreWebView2WebMessageReceivedEventHandlerVtbl g_msg_vtbl = {
+    msg_qi, msg_addref, msg_release, msg_invoke
+};
+static struct { ICoreWebView2WebMessageReceivedEventHandlerVtbl *lpVtbl; } g_msg_handler;
+
 /* ---- callbacks ---- */
 
 static HRESULT STDMETHODCALLTYPE env_invoke(ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *This,
@@ -127,9 +167,20 @@ static HRESULT STDMETHODCALLTYPE ctrl_invoke(ICoreWebView2CreateCoreWebView2Cont
     }
     g_webview = webview;
 
+    g_msg_handler.lpVtbl = &g_msg_vtbl;
+    g_webview->lpVtbl->add_WebMessageReceived(
+        g_webview,
+        (ICoreWebView2WebMessageReceivedEventHandler *)&g_msg_handler,
+        &g_message_token);
+
     RECT bounds;
     GetClientRect(g_hwnd, &bounds);
     g_controller->lpVtbl->put_Bounds(g_controller, bounds);
+
+    if (g_has_pending_folder) {
+        (void)apply_folder(g_pending_host, g_pending_dir);
+        g_has_pending_folder = 0;
+    }
 
     wchar_t wide[2048];
     utf8_to_wide(g_url, wide, 2048);
@@ -186,6 +237,50 @@ int reverie_webview_start(void *hwnd, const char *url) {
 
 int reverie_webview_state(void) {
     return g_state;
+}
+
+static int apply_folder(const char *host, const char *dir) {
+    if (!g_webview) { set_error("webview not ready"); return -1; }
+    ICoreWebView2_3 *webview3 = NULL;
+    HRESULT hr = g_webview->lpVtbl->QueryInterface(g_webview, &IID_ICoreWebView2_3, (void **)&webview3);
+    if (FAILED(hr) || !webview3) {
+        set_error("ICoreWebView2_3 unavailable");
+        return -1;
+    }
+    wchar_t wide_host[256];
+    wchar_t wide_dir[1024];
+    utf8_to_wide(host, wide_host, 256);
+    utf8_to_wide(dir, wide_dir, 1024);
+    hr = webview3->lpVtbl->SetVirtualHostNameToFolderMapping(
+        webview3, wide_host, wide_dir, COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+    webview3->lpVtbl->Release(webview3);
+    if (FAILED(hr)) { set_error("SetVirtualHostNameToFolderMapping failed"); return -1; }
+    return 0;
+}
+
+int reverie_webview_set_folder(const char *host, const char *dir) {
+    /* The WebView2 is created asynchronously, so remember the mapping until the
+     * controller (and its CoreWebView2) exists. */
+    if (g_webview) return apply_folder(host, dir);
+    if (host) snprintf(g_pending_host, sizeof(g_pending_host), "%s", host);
+    if (dir) snprintf(g_pending_dir, sizeof(g_pending_dir), "%s", dir);
+    g_has_pending_folder = 1;
+    return 0;
+}
+
+int reverie_webview_send(const char *message) {
+    if (!g_webview) { set_error("webview not ready"); return -1; }
+    wchar_t wide[4096];
+    utf8_to_wide(message, wide, 4096);
+    HRESULT hr = g_webview->lpVtbl->PostWebMessageAsString(g_webview, wide);
+    if (FAILED(hr)) { set_error("PostWebMessageAsString failed"); return -1; }
+    return 0;
+}
+
+const char *reverie_webview_poll(void) {
+    if (!g_has_message) return "";
+    g_has_message = 0;
+    return g_message;
 }
 
 void reverie_webview_stop(void) {

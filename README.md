@@ -13,6 +13,9 @@ Milestones **M0** and **M1** on Windows:
 - M0: a Win32 window plus a message loop, driven from `.reo`.
 - M1: a WebView2 hosted in that window. The COM details live in
   `shim/reverie_webview2.c`; the Reo side calls a plain C API.
+- M2: an asset protocol (`reverie_asset_folder` maps a folder to a virtual host)
+  and an IPC bridge (`reverie_send` / `reverie_poll`), so a built frontend runs
+  without a dev server.
 
 - Platform: Windows, C backend (`rev build` / `rev run`).
 

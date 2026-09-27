@@ -21,6 +21,17 @@ int reverie_webview_start(void *hwnd, const char *url);
 /* 0 idle, 1 environment ready, 2 controller ready, 3 navigated, <0 failed. */
 int reverie_webview_state(void);
 
+/* Map a host name (for example "reverie.local") to a local folder, served over
+ * https from the WebView2. Returns 0 on success. */
+int reverie_webview_set_folder(const char *host, const char *dir);
+
+/* Send a UTF-8 message to the page (window.chrome.webview "message" event). */
+int reverie_webview_send(const char *message);
+
+/* Next message posted by the page, or "" when none. The returned pointer is
+ * owned by the shim and valid until the next call. */
+const char *reverie_webview_poll(void);
+
 /* Release the controller and environment. */
 void reverie_webview_stop(void);
 

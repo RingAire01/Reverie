@@ -1,4 +1,4 @@
-// Reverie - WebView2 host bindings (Windows).
+// Reverie / Windows backend - WebView2 host bindings.
 //
 // These call the C shim in shim/reverie_webview2.c, which owns the WebView2 COM
 // details. Link the runtime with:
@@ -13,6 +13,9 @@ extern {
     fn reverie_webview_state() -> i32;
     fn reverie_webview_stop();
     fn reverie_webview_error() -> str;
+    fn reverie_webview_set_folder(host: str, dir: str) -> i32;
+    fn reverie_webview_send(message: str) -> i32;
+    fn reverie_webview_poll() -> str;
 }
 
 // Host `url` inside `hwnd`. Returns 0 once the request is dispatched; the
@@ -32,4 +35,20 @@ fn reverie_webview_last_error() -> str {
 
 fn reverie_webview_close() {
     reverie_webview_stop();
+}
+
+// Serve a local folder over https at `host` (for example "reverie.local"),
+// so the bundled frontend loads without a dev server.
+fn reverie_asset_folder(host: str, dir: str) -> i32 {
+    return reverie_webview_set_folder(host, dir);
+}
+
+// Send a UTF-8 message to the page.
+fn reverie_send(message: str) -> i32 {
+    return reverie_webview_send(message);
+}
+
+// Next message the page posted, or "" when none.
+fn reverie_poll() -> str {
+    return reverie_webview_poll();
 }

@@ -1,4 +1,4 @@
-// Reverie ABI - kernel32 bindings.
+// Reverie / Windows backend - kernel32 bindings.
 
 extern {
     fn GetModuleHandleA(name: u64) -> u64;

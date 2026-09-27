@@ -57,8 +57,8 @@ Runtime features, roughly in dependency order:
 
 - [x] Win32 window + message loop
 - [x] WebView2 host
-- [ ] `reverie://` asset protocol (serve the bundled frontend)
-- [ ] IPC bridge: invoke/command, events, channels
+- [x] Asset protocol (serve the bundled frontend; virtual host mapping on Windows)
+- [x] IPC bridge (post message / poll on Windows; invoke/events/channels later)
 - [ ] Config file + schema (`reverie.conf`)
 - [ ] Permissions / capabilities model
 - [ ] Multiple windows, DPI, transparency, fullscreen, decorations

@@ -12,7 +12,7 @@ Legend: ✅ done · 🚧 in progress · ⛔ blocked · ⬜ not started
 | --- | --- | --- |
 | M0 | Win32 window + message loop, `WNDPROC` written in `.reo` | ✅ |
 | M1 | WebView2 host via a thin C shim (WebView2Loader + COM) | ✅ |
-| M2 | IPC bridge (JS ↔ `.reo`) and a `reverie://` asset protocol | ⬜ |
+| M2 | IPC bridge (JS ↔ `.reo`) and an asset protocol | ✅ |
 | M3 | Packaging, including the runtime DLLs | ⬜ |
 | M4 | macOS (WKWebView) and Linux (WebKitGTK) backends | ⬜ |
 | M5 | Ecosystem: `reverie` CLI, permissions, updater, signing | ⬜ |
@@ -75,8 +75,8 @@ confirmed by experiment against `rev v0.2.0` on Windows 11.
 The smallest set that makes Reverie genuinely useful:
 
 1. ~~**M1** WebView2 host~~ ✅
-2. IPC bridge (needs A4 + A5)
-3. `reverie://` asset protocol
+2. ~~IPC bridge (poll-based; closures would enable push callbacks later)~~ ✅
+3. ~~Asset protocol (virtual host mapping)~~ ✅
 4. Dev-server integration (Vite / Next)
 5. Packaging that bundles the runtime DLLs
 
@@ -84,13 +84,19 @@ Everything else (M4, M5) can follow once that path is proven on Windows.
 
 ## Current state
 
-M0 + M1. The native side opens a Win32 window and hosts a WebView2 that
-navigates to a URL; the COM details live in a C shim (`shim/reverie_webview2.c`)
-linked with `rev build --lib-dir shim --link reverie_webview2 --link ole32`.
+M0 + M1 + M2 on Windows. The runtime is split into a platform-agnostic facade
+(`src/reverie.reo`) and a Windows backend (`src/reverie/platform/windows/`). The
+COM details live in a C shim (`shim/reverie_webview2.c`) linked with
+`rev build --lib-dir shim --link reverie_webview2 --link ole32`.
 
-Verified on Windows 11: `reverie_webview_open` dispatches, the controller is
-created, and `reverie_webview_state()` reaches `3` (navigated) with no error.
+Verified on Windows 11:
 
-Still missing before it is usable: the frontend (from `src/`) is not yet served
-into the webview, there is no IPC bridge, and packaging must bundle
-`WebView2Loader.dll` (and `libwinpthread-1.dll`, or link statically).
+- window opens and the WebView2 reaches state `3` (navigated);
+- `reverie_asset_folder` serves a local folder over a virtual host (tested with
+  `https://reverie.local/index.html` from a Vite build, no dev server);
+- `reverie_poll()` receives a page `postMessage`, and `reverie_send()` replies.
+
+Still missing for a usable, shippable runtime: IPC is poll-based (no push
+callbacks without capturing closures), menu/tray/dialogs, permissions, config,
+dev-server integration, and packaging must bundle `WebView2Loader.dll` (and
+`libwinpthread-1.dll`, or link statically).
