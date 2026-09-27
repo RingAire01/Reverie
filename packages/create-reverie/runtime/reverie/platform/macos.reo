@@ -62,6 +62,11 @@ module reverie_macos {
     fn reverie_window_hide(hwnd: u64) -> i32 { return 0; }
     fn reverie_window_close(hwnd: u64) -> i32 { return 0; }
     fn reverie_window_set_min_size(hwnd: u64, width: i32, height: i32) -> i32 { return 0; }
+    fn reverie_window_set_icon(hwnd: u64, path: str) -> i32 { return 0; }
+    fn reverie_window_set_backdrop(hwnd: u64, kind: i32) -> i32 { return 0; }
+    fn reverie_window_set_theme(hwnd: u64, mode: i32) -> i32 { return 0; }
+    fn reverie_state_restore(hwnd: u64) -> i32 { return 0; }
+    fn reverie_state_save(hwnd: u64) { }
 
     fn reverie_webview_open(hwnd: u64, url: str) -> i32 { return reverie_mac_webview_open(hwnd, url); }
     fn reverie_webview_status(hwnd: u64) -> i32 { return reverie_mac_webview_state(hwnd); }

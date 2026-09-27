@@ -103,6 +103,13 @@ void reverie_linux_window_close(void *hwnd);
 void reverie_linux_window_set_limits(void *hwnd, int min_width, int min_height,
                                      int max_width, int max_height);
 
+/* Window appearance + persisted geometry (see the Windows shim for semantics). */
+void reverie_linux_window_set_icon(void *hwnd, const char *path);
+void reverie_linux_window_set_backdrop(void *hwnd, int kind);
+void reverie_linux_window_set_theme(void *hwnd, int mode);
+int reverie_linux_state_restore(void *hwnd);
+void reverie_linux_state_save(void *hwnd);
+
 #ifdef __cplusplus
 }
 #endif

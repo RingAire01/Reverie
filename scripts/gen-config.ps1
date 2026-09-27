@@ -91,7 +91,19 @@ $text += "fn reverie_cfg_y() -> i32 { return $winY; }`n"
 $text += "fn reverie_cfg_center() -> i32 { return $(Flag $json.window.center 1); }`n"
 $text += "fn reverie_cfg_min_width() -> i32 { return $minW; }`n"
 $text += "fn reverie_cfg_min_height() -> i32 { return $minH; }`n"
-$text += "fn reverie_cfg_opacity() -> i32 { return $opacity; }`n`n"
+$text += "fn reverie_cfg_opacity() -> i32 { return $opacity; }`n"
+
+$icon = ''
+if ($json.window.icon) { $icon = [string]$json.window.icon }
+$backdrop = 0
+switch ("$($json.window.backdrop)") { 'mica' { $backdrop = 1 } 'acrylic' { $backdrop = 2 } 'tabbed' { $backdrop = 3 } }
+$theme = 0
+switch ("$($json.window.theme)") { 'light' { $theme = 1 } 'dark' { $theme = 2 } }
+
+$text += "fn reverie_cfg_icon() -> str { return `"$(Esc $icon)`"; }`n"
+$text += "fn reverie_cfg_backdrop() -> i32 { return $backdrop; }`n"
+$text += "fn reverie_cfg_theme() -> i32 { return $theme; }`n"
+$text += "fn reverie_cfg_remember() -> i32 { return $(Flag $json.window.remember 0); }`n`n"
 $text += "fn reverie_cfg_apply_security() {`n"
 foreach ($allowedHost in $hosts) {
     $text += "    reverie_allow_host(`"$(Esc $allowedHost)`");`n"

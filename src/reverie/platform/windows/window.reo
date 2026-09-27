@@ -17,11 +17,16 @@ fn reverie_sw_restore() -> i32 { return 9; }
 fn reverie_hwnd_topmost() -> u64 { return (0 - 1) as u64; }
 fn reverie_hwnd_notopmost() -> u64 { return (0 - 2) as u64; }
 
-// Minimal/maximum content size, enforced by the shim (WM_GETMINMAXINFO). Zero
-// means "no constraint".
+// The shim owns DWM backdrop/icon/theme calls and persisted window geometry;
+// minimum size is enforced through WM_GETMINMAXINFO. Zero means "no constraint".
 extern {
     fn reverie_window_set_limits(hwnd: u64, min_width: i32, min_height: i32,
                                  max_width: i32, max_height: i32) -> i32;
+    fn reverie_window_set_icon(hwnd: u64, path: str) -> i32;
+    fn reverie_window_set_backdrop(hwnd: u64, kind: i32) -> i32;
+    fn reverie_window_set_theme(hwnd: u64, mode: i32) -> i32;
+    fn reverie_state_restore(hwnd: u64) -> i32;
+    fn reverie_state_save(hwnd: u64);
 }
 
 // Window style/ex-style derived from configuration. Fullscreen and borderless
@@ -64,6 +69,9 @@ fn reverie_window_show_cmd() -> i32 {
 // when the demo timer fires. Apps may pass their own procedure instead.
 fn reverie_default_proc(hwnd: u64, msg: u32, wparam: u64, lparam: u64) -> u64 {
     if msg == reverie_wm_destroy() {
+        if reverie_cfg_remember() != 0 {
+            reverie_state_save(hwnd);
+        }
         PostQuitMessage(0);
         return 0;
     }

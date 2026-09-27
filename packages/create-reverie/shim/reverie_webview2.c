@@ -27,6 +27,7 @@ typedef struct {
     ICoreWebView2Controller *controller;
     ICoreWebView2 *webview;
     int state;
+    int transparent;
 
     char initial_url[2048];
     int has_pending_folder;
@@ -69,6 +70,7 @@ static NOTIFYICONDATAW g_tray;
 static int g_tray_active = 0;
 
 static int apply_folder(ReverieWindow *w, const char *host, const char *dir);
+static void apply_transparent(ReverieWindow *w);
 
 static void utf8_to_wide(const char *in, wchar_t *out, size_t cap) {
     if (!out || cap == 0) return;
@@ -241,6 +243,8 @@ static HRESULT STDMETHODCALLTYPE ctrl_invoke(ICoreWebView2CreateCoreWebView2Cont
     GetClientRect(w->hwnd, &bounds);
     w->controller->lpVtbl->put_Bounds(w->controller, bounds);
 
+    if (w->transparent) apply_transparent(w);
+
     if (w->has_pending_folder) {
         (void)apply_folder(w, w->pending_host, w->pending_dir);
         w->has_pending_folder = 0;
@@ -316,6 +320,118 @@ static int apply_folder(ReverieWindow *w, const char *host, const char *dir) {
     webview3->lpVtbl->Release(webview3);
     if (FAILED(hr)) { set_error("SetVirtualHostNameToFolderMapping failed"); return -1; }
     return 0;
+}
+
+/* Force a transparent WebView2 background so DWM backdrops (Mica/Acrylic) show
+ * through. Requires ICoreWebView2Controller2. */
+static void apply_transparent(ReverieWindow *w) {
+    if (!w || !w->controller) return;
+    ICoreWebView2Controller2 *controller2 = NULL;
+    HRESULT hr = w->controller->lpVtbl->QueryInterface(
+        w->controller, &IID_ICoreWebView2Controller2, (void **)&controller2);
+    if (SUCCEEDED(hr) && controller2) {
+        COREWEBVIEW2_COLOR color = { 0, 0, 0, 0 };
+        controller2->lpVtbl->put_DefaultBackgroundColor(controller2, color);
+        controller2->lpVtbl->Release(controller2);
+    }
+}
+
+/* ---- window appearance + persisted state ---- */
+
+typedef struct { int left; int right; int top; int bottom; } ReverieMargins;
+typedef HRESULT (WINAPI *PFN_DwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
+typedef HRESULT (WINAPI *PFN_DwmExtendFrameIntoClientArea)(HWND, const ReverieMargins *);
+
+int reverie_window_set_icon(void *hwnd, const char *path) {
+    if (!hwnd || !path || !*path) return -1;
+    wchar_t wide[1024];
+    resolve_dir(path, wide, 1024);
+    HICON icon = (HICON)LoadImageW(NULL, wide, IMAGE_ICON, 0, 0,
+                                   LR_LOADFROMFILE | LR_DEFAULTSIZE);
+    if (!icon) { set_error("window icon not found"); return -1; }
+    SendMessageW((HWND)hwnd, WM_SETICON, ICON_BIG, (LPARAM)icon);
+    SendMessageW((HWND)hwnd, WM_SETICON, ICON_SMALL, (LPARAM)icon);
+    return 0;
+}
+
+/* kind: 0 none, 1 mica, 2 acrylic, 3 tabbed (Windows 11 22H2+). */
+int reverie_window_set_backdrop(void *hwnd, int kind) {
+    if (!hwnd || kind <= 0) return 0;
+    HMODULE dwm = LoadLibraryW(L"dwmapi.dll");
+    if (!dwm) { set_error("dwmapi.dll not available"); return -1; }
+    PFN_DwmSetWindowAttribute set_attr =
+        (PFN_DwmSetWindowAttribute)(void *)GetProcAddress(dwm, "DwmSetWindowAttribute");
+    PFN_DwmExtendFrameIntoClientArea extend =
+        (PFN_DwmExtendFrameIntoClientArea)(void *)GetProcAddress(dwm, "DwmExtendFrameIntoClientArea");
+    HRESULT hr = E_NOTIMPL;
+    if (set_attr) {
+        /* DWMWA_SYSTEMBACKDROP_TYPE = 38; 1 auto, 2 mica, 3 acrylic, 4 tabbed. */
+        int value = kind + 1;
+        hr = set_attr((HWND)hwnd, 38, &value, sizeof(value));
+    }
+    if (extend) {
+        ReverieMargins margins = { -1, -1, -1, -1 };
+        extend((HWND)hwnd, &margins);
+    }
+    FreeLibrary(dwm);
+    ReverieWindow *w = find_window((HWND)hwnd);
+    if (w) { w->transparent = 1; apply_transparent(w); }
+    if (FAILED(hr)) { set_error("system backdrop requires Windows 11 22H2+"); return -1; }
+    return 0;
+}
+
+/* mode: 0 system/unchanged, 1 light, 2 dark. */
+int reverie_window_set_theme(void *hwnd, int mode) {
+    if (!hwnd || mode == 0) return 0;
+    HMODULE dwm = LoadLibraryW(L"dwmapi.dll");
+    if (!dwm) return -1;
+    PFN_DwmSetWindowAttribute set_attr =
+        (PFN_DwmSetWindowAttribute)(void *)GetProcAddress(dwm, "DwmSetWindowAttribute");
+    if (set_attr) {
+        /* DWMWA_USE_IMMERSIVE_DARK_MODE = 20. */
+        BOOL dark = (mode == 2);
+        set_attr((HWND)hwnd, 20, &dark, sizeof(dark));
+    }
+    FreeLibrary(dwm);
+    return 0;
+}
+
+static int reverie_state_path(wchar_t *out, size_t cap) {
+    wchar_t exe[MAX_PATH];
+    if (GetModuleFileNameW(NULL, exe, MAX_PATH) == 0) return 0;
+    wchar_t *slash = wcsrchr(exe, L'\\');
+    if (slash) *slash = L'\0';
+    swprintf(out, cap, L"%ls\\reverie.state", exe);
+    return 1;
+}
+
+int reverie_state_restore(void *hwnd) {
+    if (!hwnd) return 0;
+    wchar_t path[MAX_PATH];
+    if (!reverie_state_path(path, MAX_PATH)) return 0;
+    FILE *f = _wfopen(path, L"r");
+    if (!f) return 0;
+    int x = 0, y = 0, w = 0, h = 0, zoom = 0;
+    int ok = fscanf(f, "%d %d %d %d %d", &x, &y, &w, &h, &zoom) == 5;
+    fclose(f);
+    if (!ok || w <= 0 || h <= 0) return 0;
+    SetWindowPos((HWND)hwnd, NULL, x, y, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
+    if (zoom) ShowWindow((HWND)hwnd, SW_MAXIMIZE);
+    return 1;
+}
+
+void reverie_state_save(void *hwnd) {
+    if (!hwnd) return;
+    wchar_t path[MAX_PATH];
+    if (!reverie_state_path(path, MAX_PATH)) return;
+    RECT r;
+    if (!GetWindowRect((HWND)hwnd, &r)) return;
+    int zoom = IsZoomed((HWND)hwnd) ? 1 : 0;
+    FILE *f = _wfopen(path, L"w");
+    if (!f) return;
+    fprintf(f, "%d %d %d %d %d\n", (int)r.left, (int)r.top,
+            (int)(r.right - r.left), (int)(r.bottom - r.top), zoom);
+    fclose(f);
 }
 
 /* ---- public API ---- */

@@ -58,6 +58,32 @@ Build with:
 
 macOS and Linux packaging scripts live in `scripts/packager/`.
 
+### Window options
+
+`reverie.conf` under `window`:
+
+| key | values | effect |
+| --- | --- | --- |
+| `title` | string | window title |
+| `width` / `height` | px | initial size |
+| `x` / `y` | px | initial position (omit to centre) |
+| `center` | bool | centre when `x`/`y` are omitted (default true) |
+| `minWidth` / `minHeight` | px | minimum content size |
+| `opacity` | 0-255 | window opacity |
+| `decorations` | bool | title bar and border |
+| `resizable` | bool | allow resizing |
+| `alwaysOnTop` | bool | keep above other windows |
+| `fullscreen` | bool | start fullscreen |
+| `icon` | path | window/taskbar icon (`.ico` Windows, `.png` Linux) |
+| `backdrop` | none/mica/acrylic/tabbed | Windows 11 DWM backdrop |
+| `theme` | system/light/dark | dark title bar; exposed as `reverie_color_scheme()` |
+| `remember` | bool | persist position+size in `reverie.state` |
+
+Runtime API (`src/reverie.reo` and the backends): `reverie_window_open`,
+`reverie_window_set_title/size/position/center/opacity/always_on_top/min_size/icon/backdrop/theme`,
+and `reverie_window_minimize/maximize/restore/show/hide/close`. Each window can
+be configured independently.
+
 ## Backends
 
 | Backend | Windowing | Web engine | Status |

@@ -607,6 +607,75 @@ void reverie_linux_window_set_limits(void *hwnd, int min_w, int min_h, int max_w
                                   GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE);
 }
 
+void reverie_linux_window_set_icon(void *hwnd, const char *path) {
+    ReverieWin *w = find_window(hwnd);
+    if (!w || !path || !*path) return;
+    GError *err = NULL;
+    if (!gtk_window_set_icon_from_file(GTK_WINDOW(w->window), path, &err)) {
+        set_error(err ? err->message : "window icon not found");
+        if (err) g_error_free(err);
+    }
+}
+
+/* Best effort: let the compositor blend the window; the page supplies the
+ * translucent surface via CSS. Real blur depends on the compositor. */
+void reverie_linux_window_set_backdrop(void *hwnd, int kind) {
+    (void)kind;
+    ReverieWin *w = find_window(hwnd);
+    if (!w) return;
+    gtk_widget_set_app_paintable(w->window, TRUE);
+    GdkScreen *screen = gtk_widget_get_screen(w->window);
+    GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
+    if (visual) gtk_widget_set_visual(w->window, visual);
+}
+
+void reverie_linux_window_set_theme(void *hwnd, int mode) {
+    (void)hwnd;
+    if (mode == 0) return;
+    GtkSettings *settings = gtk_settings_get_default();
+    if (settings)
+        g_object_set(settings, "gtk-application-prefer-dark-theme", mode == 2, NULL);
+}
+
+static int reverie_state_path(char *out, size_t cap) {
+    const char *home = getenv("HOME");
+    if (!home || !*home) return 0;
+    snprintf(out, cap, "%s/.reverie.state", home);
+    return 1;
+}
+
+int reverie_linux_state_restore(void *hwnd) {
+    ReverieWin *w = find_window(hwnd);
+    if (!w) return 0;
+    char path[1024];
+    if (!reverie_state_path(path, sizeof(path))) return 0;
+    FILE *f = fopen(path, "r");
+    if (!f) return 0;
+    int x = 0, y = 0, ww = 0, hh = 0, zoom = 0;
+    int ok = fscanf(f, "%d %d %d %d %d", &x, &y, &ww, &hh, &zoom) == 5;
+    fclose(f);
+    if (!ok || ww <= 0 || hh <= 0) return 0;
+    gtk_window_move(GTK_WINDOW(w->window), x, y);
+    gtk_window_resize(GTK_WINDOW(w->window), ww, hh);
+    if (zoom) gtk_window_maximize(GTK_WINDOW(w->window));
+    return 1;
+}
+
+void reverie_linux_state_save(void *hwnd) {
+    ReverieWin *w = find_window(hwnd);
+    if (!w) return;
+    char path[1024];
+    if (!reverie_state_path(path, sizeof(path))) return;
+    int x = 0, y = 0, ww = 0, hh = 0;
+    gtk_window_get_position(GTK_WINDOW(w->window), &x, &y);
+    gtk_window_get_size(GTK_WINDOW(w->window), &ww, &hh);
+    int zoom = gtk_window_is_maximized(GTK_WINDOW(w->window)) ? 1 : 0;
+    FILE *f = fopen(path, "w");
+    if (!f) return;
+    fprintf(f, "%d %d %d %d %d\n", x, y, ww, hh, zoom);
+    fclose(f);
+}
+
 /* ---- tray (unsupported on plain GTK) ---- */
 
 int reverie_linux_tray_add(void *hwnd, const char *tooltip) {

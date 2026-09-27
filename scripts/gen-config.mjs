@@ -69,7 +69,15 @@ text += `fn reverie_cfg_y() -> i32 { return ${win.y == null ? -1 : parseInt(win.
 text += `fn reverie_cfg_center() -> i32 { return ${flag(win.center, 1)}; }\n`;
 text += `fn reverie_cfg_min_width() -> i32 { return ${win.minWidth == null ? 0 : parseInt(win.minWidth, 10)}; }\n`;
 text += `fn reverie_cfg_min_height() -> i32 { return ${win.minHeight == null ? 0 : parseInt(win.minHeight, 10)}; }\n`;
-text += `fn reverie_cfg_opacity() -> i32 { return ${win.opacity == null ? 255 : parseInt(win.opacity, 10)}; }\n\n`;
+text += `fn reverie_cfg_opacity() -> i32 { return ${win.opacity == null ? 255 : parseInt(win.opacity, 10)}; }\n`;
+
+const backdrop = { mica: 1, acrylic: 2, tabbed: 3 }[win.backdrop] ?? 0;
+const theme = { light: 1, dark: 2 }[win.theme] ?? 0;
+
+text += `fn reverie_cfg_icon() -> str { return "${esc(win.icon || "")}"; }\n`;
+text += `fn reverie_cfg_backdrop() -> i32 { return ${backdrop}; }\n`;
+text += `fn reverie_cfg_theme() -> i32 { return ${theme}; }\n`;
+text += `fn reverie_cfg_remember() -> i32 { return ${flag(win.remember, 0)}; }\n\n`;
 text += "fn reverie_cfg_apply_security() {\n";
 for (const host of hosts) text += `    reverie_allow_host("${esc(host)}");\n`;
 text += "}\n";

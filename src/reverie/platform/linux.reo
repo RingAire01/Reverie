@@ -71,6 +71,11 @@ module reverie_linux {
         fn reverie_linux_window_close(hwnd: u64);
         fn reverie_linux_window_set_limits(hwnd: u64, min_width: i32, min_height: i32,
                                            max_width: i32, max_height: i32);
+        fn reverie_linux_window_set_icon(hwnd: u64, path: str);
+        fn reverie_linux_window_set_backdrop(hwnd: u64, kind: i32);
+        fn reverie_linux_window_set_theme(hwnd: u64, mode: i32);
+        fn reverie_linux_state_restore(hwnd: u64) -> i32;
+        fn reverie_linux_state_save(hwnd: u64);
     }
 
     fn reverie_window_set_title(hwnd: u64, title: str) -> i32 {
@@ -100,6 +105,17 @@ module reverie_linux {
     fn reverie_window_set_min_size(hwnd: u64, width: i32, height: i32) -> i32 {
         reverie_linux_window_set_limits(hwnd, width, height, 0, 0); return 0;
     }
+    fn reverie_window_set_icon(hwnd: u64, path: str) -> i32 {
+        reverie_linux_window_set_icon(hwnd, path); return 0;
+    }
+    fn reverie_window_set_backdrop(hwnd: u64, kind: i32) -> i32 {
+        reverie_linux_window_set_backdrop(hwnd, kind); return 0;
+    }
+    fn reverie_window_set_theme(hwnd: u64, mode: i32) -> i32 {
+        reverie_linux_window_set_theme(hwnd, mode); return 0;
+    }
+    fn reverie_state_restore(hwnd: u64) -> i32 { return reverie_linux_state_restore(hwnd); }
+    fn reverie_state_save(hwnd: u64) { reverie_linux_state_save(hwnd); }
 
     fn reverie_webview_open(hwnd: u64, url: str) -> i32 { return reverie_linux_webview_open(hwnd, url); }
     fn reverie_webview_status(hwnd: u64) -> i32 { return reverie_linux_webview_state(hwnd); }

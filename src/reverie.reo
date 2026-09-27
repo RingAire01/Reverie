@@ -20,7 +20,35 @@ fn reverie_launch() -> u64 {
     if reverie_cfg_opacity() < 255 {
         reverie_window_set_opacity(hwnd, reverie_cfg_opacity());
     }
+    if reverie_cfg_theme() != 0 {
+        reverie_window_set_theme(hwnd, reverie_cfg_theme());
+    }
+    if reverie_cfg_backdrop() != 0 {
+        reverie_window_set_backdrop(hwnd, reverie_cfg_backdrop());
+    }
+    if reverie_cfg_icon() != "" {
+        reverie_window_set_icon(hwnd, reverie_cfg_icon());
+    }
+    if reverie_cfg_remember() != 0 {
+        reverie_state_restore(hwnd);
+    }
     reverie_asset_folder(hwnd, reverie_cfg_asset_host(), reverie_cfg_asset_folder());
     reverie_webview_open(hwnd, reverie_cfg_window_url());
     return hwnd;
+}
+
+// Open an extra window with its own title and message procedure. Configure it
+// independently with the reverie_window_* functions and attach a webview with
+// reverie_webview_open; messages carry the source handle via
+// reverie_message_window, so each window can be handled separately.
+fn reverie_window_open(title: str, width: i32, height: i32,
+                       proc: fn(u64, u32, u64, u64) -> u64) -> u64 {
+    return reverie_create_window("ReverieWindow", title, width, height, proc);
+}
+
+// The configured colour scheme ("light", "dark", or "system") for the frontend.
+fn reverie_color_scheme() -> str {
+    if reverie_cfg_theme() == 2 { return "dark"; }
+    if reverie_cfg_theme() == 1 { return "light"; }
+    return "system";
 }

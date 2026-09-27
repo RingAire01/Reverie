@@ -29,6 +29,21 @@ void reverie_tray_remove(void);
 int reverie_window_set_limits(void *hwnd, int min_width, int min_height,
                               int max_width, int max_height);
 
+/* Window appearance. `path` is an .ico resolved against the executable's dir. */
+int reverie_window_set_icon(void *hwnd, const char *path);
+
+/* DWM system backdrop: 0 none, 1 mica, 2 acrylic, 3 tabbed (Windows 11 22H2+).
+ * Makes the WebView2 background transparent so the backdrop shows through. */
+int reverie_window_set_backdrop(void *hwnd, int kind);
+
+/* Title-bar colour mode: 0 system/unchanged, 1 light, 2 dark. */
+int reverie_window_set_theme(void *hwnd, int mode);
+
+/* Persisted window geometry in reverie.state next to the executable.
+ * restore returns 1 when a saved state was applied. */
+int reverie_state_restore(void *hwnd);
+void reverie_state_save(void *hwnd);
+
 /* Navigation policy: only these hosts (plus data:/about:/blob:) may load.
  * "reverie.local" and "localhost" are allowed by default. */
 void reverie_webview_allow_host(const char *host);
