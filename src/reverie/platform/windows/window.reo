@@ -1,3 +1,5 @@
+@cfg(windows)
+module reverie_windows_window {
 // Reverie / Windows backend - window lifecycle.
 
 // WS_OVERLAPPEDWINDOW = 0x00CF0000, WS_POPUP = 0x80000000, WS_EX_TOPMOST = 8,
@@ -118,4 +120,6 @@ fn reverie_menu_attach(hwnd: u64, menu: u64) -> i32 {
 // Menu id from a WM_COMMAND wparam (low word).
 fn reverie_menu_id(wparam: u64) -> u32 {
     return (wparam & 65535) as u32;
+}
+
 }

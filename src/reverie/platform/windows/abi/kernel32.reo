@@ -1,6 +1,10 @@
+@cfg(windows)
+module reverie_windows_abi_kernel32 {
 // Reverie / Windows backend - kernel32 bindings.
 
 extern {
     fn GetModuleHandleA(name: u64) -> u64;
     fn Sleep(ms: u32);
+}
+
 }
