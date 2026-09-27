@@ -70,6 +70,18 @@ pnpm reverie:dev     # build, then launch app.exe
 `reverie:build` needs `rev` and a Windows C toolchain on `PATH`; the WebView2
 SDK is fetched into `shim/webview2/` on first run.
 
+Output mirrors Tauri's `src-tauri/target` layout — nothing is written to the app
+root:
+
+```
+src-reverie/target/release/
+  app.exe
+  WebView2Loader.dll
+  libwinpthread-1.dll
+shim/build/
+  libreverie_webview2.a
+```
+
 ## Build and run
 
 Requires the `rev` compiler and a Windows C toolchain on `PATH` (for example

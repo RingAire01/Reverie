@@ -1,16 +1,27 @@
 # Build a Reverie app end to end: shim -> native binary -> runtime DLLs.
 #
-#   pwsh scripts/build-app.ps1 [-Name app]
+#   powershell -File scripts/build-app.ps1 [-Name app] [-Profile release]
+#
+# Output mirrors Tauri's src-tauri/target layout: everything lands under
+# src-reverie/target/<profile>/.
+#
+#   src-reverie/target/release/
+#     app.exe
+#     WebView2Loader.dll
+#     libwinpthread-1.dll
 #
 # Requires `rev` and a Windows C toolchain on PATH (for example LLVM-MinGW).
 # The WebView2 SDK is fetched into shim/webview2/ on first run.
 param(
     [string]$Name = "app",
+    [ValidateSet('debug', 'release')][string]$Profile = 'release',
     [string]$Rev = $env:REV,
     [string]$CC = $env:REO_CC,
     [string]$Ar = $env:REO_AR
 )
-$ErrorActionPreference = 'Stop'
+# Native command stderr (compiler warnings) is not fatal; each native call is
+# checked via $LASTEXITCODE instead.
+$ErrorActionPreference = 'Continue'
 
 if (-not $Rev) { $Rev = 'rev' }
 if (-not $CC) { $CC = 'gcc' }
@@ -20,7 +31,8 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $appRoot = Split-Path -Parent $here
 $shim = Join-Path $appRoot 'shim'
 $srcReve = Join-Path $appRoot 'src-reverie'
-$out = Join-Path $appRoot "$Name.exe"
+$outDir = Join-Path $srcReve "target/$Profile"
+New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 
 # 1. WebView2 SDK (headers + loader DLL), fetched once.
 if (-not (Test-Path (Join-Path $shim 'webview2/include/WebView2.h'))) {
@@ -31,15 +43,15 @@ if (-not (Test-Path (Join-Path $shim 'webview2/include/WebView2.h'))) {
 & (Join-Path $shim 'build.ps1') -CC $CC -Ar $Ar
 
 # 3. Native binary (RingEcho runtime).
-& $Rev build (Join-Path $srcReve 'main.reo') --lib-dir $shim --link reverie_webview2 --link ole32 -o $out
+& $Rev build (Join-Path $srcReve 'main.reo') --lib-dir (Join-Path $shim 'build') --link reverie_webview2 --link ole32 -o (Join-Path $outDir "$Name.exe")
 if ($LASTEXITCODE -ne 0) { throw 'rev build failed' }
 
 # 4. Runtime DLLs next to the executable.
-Copy-Item -LiteralPath (Join-Path $shim 'webview2/x64/WebView2Loader.dll') -Destination (Join-Path $appRoot 'WebView2Loader.dll') -Force
+Copy-Item -LiteralPath (Join-Path $shim 'webview2/x64/WebView2Loader.dll') -Destination (Join-Path $outDir 'WebView2Loader.dll') -Force
 $ccDir = Split-Path -Parent (Get-Command $CC).Source
 $winpthread = Join-Path $ccDir 'libwinpthread-1.dll'
 if (Test-Path $winpthread) {
-    Copy-Item -LiteralPath $winpthread -Destination (Join-Path $appRoot 'libwinpthread-1.dll') -Force
+    Copy-Item -LiteralPath $winpthread -Destination (Join-Path $outDir 'libwinpthread-1.dll') -Force
 }
 
-Write-Host "built $out"
+Write-Host "built $(Join-Path $outDir "$Name.exe")"

@@ -4,7 +4,9 @@ target/
 *.pdb
 *.dll
 
-# WebView2 SDK and the shim build output are fetched/built, not committed.
+# WebView2 SDK and shim build output are fetched/built, not committed.
 shim/webview2/
+shim/build/
 shim/*.o
 shim/*.a
+src-reverie/target/

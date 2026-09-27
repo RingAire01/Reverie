@@ -3,5 +3,7 @@ dist/
 .next/
 out/
 src-reverie/target/
+shim/build/
+shim/webview2/
 *.exe
 *.pdb
