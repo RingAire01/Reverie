@@ -22,7 +22,7 @@ Legend: ✅ done · 🚧 partial · ⬜ not started
 | Native dialogs | dialog plugin (open/save/message) | ✅ open/save via `GetOpenFileNameW` | message box later |
 | Updater | updater plugin (signed) | ⬜ | download + verify + swap, later |
 | Logging | log plugin | ✅ `reverie_log` -> `reverie.log` | plugin config later |
-| Bundle / installers | Tauri bundler (NSIS/dmg/deb/AppImage) | ✅ Inno Setup installer (Windows, per-user) | mac/linux bundlers later |
+| Bundle / installers | Tauri bundler (NSIS/dmg/deb/AppImage) | ✅ Windows: Inno + MSIX; macOS (.app/.dmg) and Linux (AppImage/.deb/.rpm) scripts in place | mac/linux bundlers need the matching backend |
 | Dev server + HMR | `devUrl` | ⬜ | point the window at the Vite URL |
 | Plugins | plugin system | ⬜ | command namespaces |
 | Cross-platform | Win/mac/Linux/iOS/Android | 🚧 Windows | mac/linux backends; `@cfg` |
