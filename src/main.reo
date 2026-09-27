@@ -1,0 +1,76 @@
+// Reverie M0 demo: register a window class whose window procedure is written in
+// RingEcho, show a window, run the message loop, and quit after two seconds.
+//
+// The window procedure is a plain `.reo` function; RingEcho lowers function
+// types to bare C function pointers, so it can be passed to Win32 directly.
+
+import "win32"
+
+// Win32 message identifiers used by this demo.
+//   WM_DESTROY = 0x0002, WM_CLOSE = 0x0010, WM_TIMER = 0x0113
+
+fn wnd_proc(hwnd: u64, msg: u32, wparam: u64, lparam: u64) -> u64 {
+    if msg == 2 {
+        PostQuitMessage(0);
+        return 0;
+    }
+    if msg == 16 {
+        DestroyWindow(hwnd);
+        return 0;
+    }
+    if msg == 275 {
+        KillTimer(hwnd, 1);
+        DestroyWindow(hwnd);
+        return 0;
+    }
+    return DefWindowProcA(hwnd, msg, wparam, lparam);
+}
+
+fn main() {
+    let instance: u64 = GetModuleHandleA(0);
+
+    let wc = WndClassA {
+        style: 0,
+        wndproc: wnd_proc,
+        cls_extra: 0,
+        wnd_extra: 0,
+        instance: instance,
+        icon: 0,
+        cursor: 0,
+        background: 0,
+        menu_name: "",
+        class_name: "ReverieWindow",
+    };
+    let atom: u16 = RegisterClassA(&wc);
+    println(atom as i64);
+
+    // WS_OVERLAPPEDWINDOW at (120,120) sized 640x480.
+    let hwnd: u64 = CreateWindowExA(0, "ReverieWindow", "Reverie M0",
+        0x00CF0000, 120, 120, 640, 480, 0, 0, instance, 0);
+    println(IsWindow(hwnd));
+
+    let rect = Rect { left: 0, top: 0, right: 0, bottom: 0 };
+    GetWindowRect(hwnd, &rect);
+    println(rect.right - rect.left);
+    println(rect.bottom - rect.top);
+
+    ShowWindow(hwnd, 5);
+    UpdateWindow(hwnd);
+    SetTimer(hwnd, 1, 2000, 0);
+
+    let msg = Msg {
+        hwnd: 0,
+        message: 0,
+        wparam: 0,
+        lparam: 0,
+        time: 0,
+        pt_x: 0,
+        pt_y: 0,
+    };
+    while GetMessageA(&msg, 0, 0, 0) > 0 {
+        TranslateMessage(&msg);
+        DispatchMessageA(&msg);
+    }
+
+    println("Reverie M0 finished");
+}
