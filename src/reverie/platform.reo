@@ -1,0 +1,7 @@
+// Reverie - host backend selection.
+//
+// Exactly one backend may be imported (RingEcho has no conditional
+// compilation yet), so this file is the single selection point. The
+// create-reverie scaffold and CI generate it per target; see PLATFORMS.md.
+
+import "reverie/platform/windows"

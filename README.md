@@ -22,13 +22,10 @@ Milestones **M0** and **M1** on Windows:
 src/
   reverie.reo              public facade (import this)
   reverie/
-    abi/structs.reo        C-layout structs (WndClassA, Msg, Rect)
-    abi/user32.reo         user32 externs
-    abi/kernel32.reo       kernel32 externs
-    messages.reo           WM_* identifiers
-    window.reo             class registration, creation, default procedure
-    loop.reo               message loop
-  reverie/webview2.reo     WebView2 shim bindings
+    platform.reo           host backend selection (single import point)
+    platform/windows/      Win32 + WebView2 backend
+      abi/*.reo            C-layout structs and user32/kernel32 externs
+      messages.reo  window.reo  loop.reo  webview.reo
   main.reo                 M1 demo (window + WebView2)
 shim/
   reverie_webview2.c/.h    C boundary over the WebView2 COM API
@@ -36,9 +33,11 @@ shim/
   webview2/                fetched SDK (not committed)
 ```
 
-RingEcho has no namespaces: every imported declaration lands in one global
-scope. Imports resolve relative to the **entry file's** directory, so all
-import paths are written from `src/`. Public API names carry a `reverie_`
+The runtime is split into a platform-agnostic facade and per-OS backends;
+see [PLATFORMS.md](PLATFORMS.md) for the architecture and the Tauri parity
+checklist. RingEcho has no namespaces: every imported declaration lands in one
+global scope, and imports resolve relative to the **entry file's** directory, so
+all import paths are written from `src/`. Public API names carry a `reverie_`
 prefix; the ABI layer keeps the exact Win32 names because they must match the C
 symbols.
 

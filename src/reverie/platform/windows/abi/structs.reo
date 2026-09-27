@@ -1,8 +1,6 @@
-// Reverie ABI - C-layout structs mirroring their Win32 counterparts.
-//
-// RingEcho emits these declarations verbatim, so the C compiler computes the
-// same field offsets as <windows.h>. Only the field order and scalar widths
-// matter; pointer-sized handles are modelled as u64.
+// Reverie / Windows backend - C-layout structs mirroring their Win32
+// counterparts. RingEcho emits these declarations verbatim, so the C compiler
+// computes the same offsets as <windows.h>.
 
 struct WndClassA {
     style: u32,

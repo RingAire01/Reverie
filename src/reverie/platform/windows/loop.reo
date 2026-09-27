@@ -1,4 +1,4 @@
-// Reverie - message loop.
+// Reverie / Windows backend - message loop.
 //
 // GetMessageA blocks until a message arrives; it returns 0 after
 // PostQuitMessage and a negative value on error, so the loop ends on both.

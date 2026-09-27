@@ -1,7 +1,4 @@
-// Reverie ABI - user32 bindings.
-//
-// Names must match the C symbols exactly, so they are not prefixed. user32 is
-// linked by default by the mingw-w64 / LLVM-MinGW runtime.
+// Reverie / Windows backend - user32 bindings.
 
 extern {
     fn RegisterClassA(cls: &WndClassA) -> u16;

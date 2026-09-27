@@ -1,4 +1,4 @@
-// Reverie - Win32 message identifiers.
+// Reverie / Windows backend - Win32 message identifiers.
 //
 // RingEcho has no `const` declarations, so identifiers are exposed as
 // zero-argument functions.
