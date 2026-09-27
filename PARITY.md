@@ -16,7 +16,7 @@ Legend: ✅ done · 🚧 partial · ⬜ not started
 | Asset protocol | custom protocol | ✅ virtual host mapping | scope to the app folder |
 | Security: CSP | `security.csp` | ⬜ | inject CSP header/meta per window |
 | Security: permissions | capabilities + per-command allowlist | ⬜ | allowlist checked in the dispatcher |
-| Security: isolation | per-window scope, no remote by default | ⬜ | deny external navigation by default |
+| Security: isolation | per-window scope, no remote by default | ✅ `reverie_allow_host` + navigation policy | per-window allowlists later |
 | Config | `tauri.conf.json` + schema | 🚧 `ringecho.toml` | `reverie.conf` + JSON schema |
 | Menus / tray | Menu/Tray APIs | ⬜ | Win32 menus; needs a command bridge |
 | Native dialogs | dialog plugin (open/save/message) | ⬜ | COM `IFileDialog` in the shim |

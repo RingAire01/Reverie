@@ -17,6 +17,9 @@ extern {
     fn reverie_webview_send(message: str) -> i32;
     fn reverie_webview_poll() -> str;
     fn reverie_webview_on_message(handler: fn(str));
+    fn reverie_webview_allow_host(host: str);
+    fn reverie_webview_navigate(url: str) -> i32;
+    fn reverie_webview_last_blocked() -> str;
 }
 
 // Host `url` inside `hwnd`. Returns 0 once the request is dispatched; the
@@ -57,4 +60,20 @@ fn reverie_poll() -> str {
 // Push: register a handler called for each message the page posts.
 fn reverie_on_message(handler: fn(str)) {
     reverie_webview_on_message(handler);
+}
+
+// Allow an additional host to be loaded (reverie.local and localhost are
+// always allowed; other hosts are blocked by default).
+fn reverie_allow_host(host: str) {
+    reverie_webview_allow_host(host);
+}
+
+// Navigate to url, subject to the host policy.
+fn reverie_navigate(url: str) -> i32 {
+    return reverie_webview_navigate(url);
+}
+
+// URI of the most recent blocked navigation, or "".
+fn reverie_last_blocked() -> str {
+    return reverie_webview_last_blocked();
 }

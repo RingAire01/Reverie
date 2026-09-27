@@ -30,6 +30,11 @@ static char g_message[4096];
 static int  g_has_message = 0;
 static EventRegistrationToken g_message_token;
 static void (*g_message_handler)(const char *) = NULL;
+static char g_allowed_hosts[8][256];
+static int  g_allowed_host_count = 0;
+static char g_last_blocked[2048];
+
+static int host_allowed(const char *uri);
 static char g_pending_host[256];
 static char g_pending_dir[1024];
 static int  g_has_pending_folder = 0;
@@ -123,6 +128,81 @@ static ICoreWebView2WebMessageReceivedEventHandlerVtbl g_msg_vtbl = {
 };
 static struct { ICoreWebView2WebMessageReceivedEventHandlerVtbl *lpVtbl; } g_msg_handler;
 
+/* ---- navigation policy ---- */
+
+static int ci_equal_n(const char *a, const char *b, size_t n) {
+    for (size_t i = 0; i < n; i++) {
+        char ca = a[i], cb = b[i];
+        if (ca >= 'A' && ca <= 'Z') ca = (char)(ca - 'A' + 'a');
+        if (cb >= 'A' && cb <= 'Z') cb = (char)(cb - 'A' + 'a');
+        if (ca != cb) return 0;
+        if (ca == '\0') return 1;
+    }
+    return 1;
+}
+
+static void ensure_default_hosts(void) {
+    if (g_allowed_host_count > 0) return;
+    snprintf(g_allowed_hosts[g_allowed_host_count++], 256, "%s", "reverie.local");
+    snprintf(g_allowed_hosts[g_allowed_host_count++], 256, "%s", "localhost");
+}
+
+static int host_allowed(const char *uri) {
+    if (!uri) return 0;
+    /* Scheme-only URIs (data:, about:, blob:) carry no network origin. */
+    const char *scheme = strstr(uri, "://");
+    if (!scheme) return 1;
+    const char *host = scheme + 3;
+    size_t host_len = 0;
+    while (host[host_len] && host[host_len] != '/' && host[host_len] != ':' &&
+           host[host_len] != '?' && host[host_len] != '#') {
+        host_len++;
+    }
+    ensure_default_hosts();
+    for (int i = 0; i < g_allowed_host_count; i++) {
+        if (strlen(g_allowed_hosts[i]) == host_len && ci_equal_n(host, g_allowed_hosts[i], host_len))
+            return 1;
+    }
+    return 0;
+}
+
+/* ---- NavigationStarting handler ---- */
+
+static HRESULT STDMETHODCALLTYPE nav_qi(ICoreWebView2NavigationStartingEventHandler *This,
+                                        REFIID riid, void **ppv) {
+    (void)riid;
+    if (!ppv) return E_POINTER;
+    *ppv = This;
+    return S_OK;
+}
+static ULONG STDMETHODCALLTYPE nav_addref(ICoreWebView2NavigationStartingEventHandler *This) {
+    (void)This; return 1;
+}
+static ULONG STDMETHODCALLTYPE nav_release(ICoreWebView2NavigationStartingEventHandler *This) {
+    (void)This; return 1;
+}
+static HRESULT STDMETHODCALLTYPE nav_invoke(ICoreWebView2NavigationStartingEventHandler *This,
+                                            ICoreWebView2 *sender,
+                                            ICoreWebView2NavigationStartingEventArgs *args) {
+    (void)This; (void)sender;
+    LPWSTR uri = NULL;
+    if (args && SUCCEEDED(args->lpVtbl->get_Uri(args, &uri)) && uri) {
+        char utf8[2048];
+        WideCharToMultiByte(CP_UTF8, 0, uri, -1, utf8, (int)sizeof(utf8), NULL, NULL);
+        if (!host_allowed(utf8)) {
+            args->lpVtbl->put_Cancel(args, TRUE);
+            snprintf(g_last_blocked, sizeof(g_last_blocked), "%s", utf8);
+        }
+        CoTaskMemFree(uri);
+    }
+    return S_OK;
+}
+static ICoreWebView2NavigationStartingEventHandlerVtbl g_nav_vtbl = {
+    nav_qi, nav_addref, nav_release, nav_invoke
+};
+static struct { ICoreWebView2NavigationStartingEventHandlerVtbl *lpVtbl; } g_nav_handler;
+static EventRegistrationToken g_nav_token;
+
 /* ---- callbacks ---- */
 
 static HRESULT STDMETHODCALLTYPE env_invoke(ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *This,
@@ -175,6 +255,12 @@ static HRESULT STDMETHODCALLTYPE ctrl_invoke(ICoreWebView2CreateCoreWebView2Cont
         (ICoreWebView2WebMessageReceivedEventHandler *)&g_msg_handler,
         &g_message_token);
 
+    g_nav_handler.lpVtbl = &g_nav_vtbl;
+    g_webview->lpVtbl->add_NavigationStarting(
+        g_webview,
+        (ICoreWebView2NavigationStartingEventHandler *)&g_nav_handler,
+        &g_nav_token);
+
     RECT bounds;
     GetClientRect(g_hwnd, &bounds);
     g_controller->lpVtbl->put_Bounds(g_controller, bounds);
@@ -206,6 +292,7 @@ int reverie_webview_start(void *hwnd, const char *url) {
     if (url) snprintf(g_url, sizeof(g_url), "%s", url);
 
     (void)CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    ensure_default_hosts();
 
     HMODULE loader = LoadLibraryW(L"WebView2Loader.dll");
     if (!loader) {
@@ -287,6 +374,28 @@ const char *reverie_webview_poll(void) {
 
 void reverie_webview_on_message(void (*handler)(const char *message)) {
     g_message_handler = handler;
+}
+
+void reverie_webview_allow_host(const char *host) {
+    if (!host) return;
+    ensure_default_hosts();
+    for (int i = 0; i < g_allowed_host_count; i++)
+        if (strcmp(g_allowed_hosts[i], host) == 0) return;
+    if (g_allowed_host_count >= 8) return;
+    snprintf(g_allowed_hosts[g_allowed_host_count++], 256, "%s", host);
+}
+
+int reverie_webview_navigate(const char *url) {
+    if (!g_webview) { set_error("webview not ready"); return -1; }
+    wchar_t wide[2048];
+    utf8_to_wide(url, wide, 2048);
+    HRESULT hr = g_webview->lpVtbl->Navigate(g_webview, wide);
+    if (FAILED(hr)) { set_error("Navigate failed"); return -1; }
+    return 0;
+}
+
+const char *reverie_webview_last_blocked(void) {
+    return g_last_blocked;
 }
 
 void reverie_webview_stop(void) {

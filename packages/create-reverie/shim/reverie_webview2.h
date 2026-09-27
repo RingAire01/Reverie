@@ -33,6 +33,17 @@ int reverie_webview_send(const char *message);
  * and valid only for the duration of the call. */
 void reverie_webview_on_message(void (*handler)(const char *message));
 
+/* Navigation policy: only these hosts (plus data:/about:/blob:) may be loaded.
+ * "reverie.local" and "localhost" are allowed by default; everything else is
+ * blocked. Hosts are matched case-insensitively, ignoring a port. */
+void reverie_webview_allow_host(const char *host);
+
+/* Navigate the WebView2 to url. Subject to the navigation policy. */
+int reverie_webview_navigate(const char *url);
+
+/* URI of the most recent blocked navigation, or "" if none. */
+const char *reverie_webview_last_blocked(void);
+
 /* Next message posted by the page, or "" when none. The returned pointer is
  * owned by the shim and valid until the next call. */
 const char *reverie_webview_poll(void);
