@@ -49,7 +49,7 @@ $genConfig = Join-Path $here 'gen-config.ps1'
 if (Test-Path $genConfig) { & $genConfig -Dev:$Dev }
 
 # 4. Native binary (RingEcho runtime).
-& $Rev build (Join-Path $srcReve 'main.reo') --lib-dir (Join-Path $shim 'build') --link reverie_webview2 --link ole32 -o (Join-Path $outDir "$Name.exe")
+& $Rev build (Join-Path $srcReve 'main.reo') --lib-dir (Join-Path $shim 'build') --link reverie_webview2 --link ole32 --link comdlg32 -o (Join-Path $outDir "$Name.exe")
 if ($LASTEXITCODE -ne 0) { throw 'rev build failed' }
 
 # 5. Runtime DLLs next to the executable.

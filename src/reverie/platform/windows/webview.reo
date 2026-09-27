@@ -10,6 +10,9 @@
 
 extern {
     fn reverie_win_init();
+    fn reverie_log_write(message: str);
+    fn reverie_dialog_open(pattern: str) -> str;
+    fn reverie_dialog_save(pattern: str) -> str;
     fn reverie_webview_start(hwnd: u64, url: str) -> i32;
     fn reverie_webview_state() -> i32;
     fn reverie_webview_stop();
@@ -27,6 +30,20 @@ extern {
 // Process-wide init (DPI awareness). Call before creating windows.
 fn reverie_init() {
     reverie_win_init();
+}
+
+// Append a line to reverie.log next to the executable.
+fn reverie_log(message: str) {
+    reverie_log_write(message);
+}
+
+// Native file dialogs (block until the user responds). Return the path or "".
+fn reverie_open_file(pattern: str) -> str {
+    return reverie_dialog_open(pattern);
+}
+
+fn reverie_save_file(pattern: str) -> str {
+    return reverie_dialog_save(pattern);
 }
 
 // Host `url` inside `hwnd`. Returns 0 once the request is dispatched; the

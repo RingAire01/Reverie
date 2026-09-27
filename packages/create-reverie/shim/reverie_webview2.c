@@ -7,8 +7,10 @@
  * no link-time dependency on the WebView2 SDK.
  */
 #include <windows.h>
+#include <commdlg.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "WebView2.h"
 #include "reverie_webview2.h"
@@ -400,6 +402,59 @@ const char *reverie_webview_poll(void) {
 
 void reverie_webview_on_message(void (*handler)(const char *message)) {
     g_message_handler = handler;
+}
+
+void reverie_log_write(const char *message) {
+    FILE *f = fopen("reverie.log", "a");
+    if (!f) return;
+    fprintf(f, "[%lld] %s\n", (long long)time(NULL), message ? message : "");
+    fclose(f);
+}
+
+static char g_dialog_path[1024];
+
+static void build_dialog_filter(const char *pattern, wchar_t *filter) {
+    wchar_t wide[128];
+    utf8_to_wide(pattern && *pattern ? pattern : "*.*", wide, 128);
+    /* "Files\0<pattern>\0All files\0*.*\0\0" */
+    wchar_t *p = filter;
+    wcscpy(p, L"Files"); p += wcslen(p) + 1;
+    wcscpy(p, wide); p += wcslen(p) + 1;
+    wcscpy(p, L"All files"); p += wcslen(p) + 1;
+    wcscpy(p, L"*.*"); p += wcslen(p) + 1;
+    *p = L'\0';
+}
+
+static int run_dialog(int save, const char *pattern) {
+    wchar_t file[MAX_PATH];
+    file[0] = L'\0';
+    wchar_t filter[512];
+    build_dialog_filter(pattern, filter);
+
+    OPENFILENAMEW ofn;
+    memset(&ofn, 0, sizeof(ofn));
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = g_hwnd;
+    ofn.lpstrFilter = filter;
+    ofn.lpstrFile = file;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR |
+                (save ? OFN_OVERWRITEPROMPT : OFN_FILEMUSTEXIST);
+
+    BOOL ok = save ? GetSaveFileNameW(&ofn) : GetOpenFileNameW(&ofn);
+    if (!ok) { g_dialog_path[0] = '\0'; return 0; }
+    WideCharToMultiByte(CP_UTF8, 0, file, -1, g_dialog_path, (int)sizeof(g_dialog_path), NULL, NULL);
+    return 1;
+}
+
+const char *reverie_dialog_open(const char *pattern) {
+    run_dialog(0, pattern);
+    return g_dialog_path;
+}
+
+const char *reverie_dialog_save(const char *pattern) {
+    run_dialog(1, pattern);
+    return g_dialog_path;
 }
 
 void reverie_win_init(void) {

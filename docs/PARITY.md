@@ -19,9 +19,9 @@ Legend: ✅ done · 🚧 partial · ⬜ not started
 | Security: isolation | per-window scope, no remote by default | ✅ `reverie_allow_host` + navigation policy | per-window allowlists later |
 | Config | `tauri.conf.json` + schema | ✅ `reverie.conf` generated into `config.reo` | JSON schema later |
 | Menus / tray | Menu/Tray APIs | ⬜ | Win32 menus; needs a command bridge |
-| Native dialogs | dialog plugin (open/save/message) | ⬜ | COM `IFileDialog` in the shim |
+| Native dialogs | dialog plugin (open/save/message) | ✅ open/save via `GetOpenFileNameW` | message box later |
 | Updater | updater plugin (signed) | ⬜ | download + verify + swap, later |
-| Logging | log plugin | ⬜ | shim-level log file |
+| Logging | log plugin | ✅ `reverie_log` -> `reverie.log` | plugin config later |
 | Bundle / installers | Tauri bundler (NSIS/dmg/deb/AppImage) | 🚧 one-command build | NSIS installer; embedding |
 | Dev server + HMR | `devUrl` | ⬜ | point the window at the Vite URL |
 | Plugins | plugin system | ⬜ | command namespaces |

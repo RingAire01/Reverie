@@ -1,9 +1,12 @@
 // Reverie M1 demo: a Win32 window hosting a WebView2.
 //
-// Build (from the repo root), with WebView2Loader.dll next to the output:
+// Build (from the repo root); output goes under target/, like Tauri:
 //
+//   powershell -File shim/build.ps1
 //   rev build src/main.reo \
-//     --lib-dir shim --link reverie_webview2 --link ole32 -o app.exe
+//     --lib-dir shim/build --link reverie_webview2 --link ole32 \
+//     -o target/release/app.exe
+//   copy shim/webview2/x64/WebView2Loader.dll target/release/
 
 import "reverie"
 

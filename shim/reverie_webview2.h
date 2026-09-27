@@ -37,6 +37,15 @@ void reverie_webview_on_message(void (*handler)(const char *message));
  * creating any window. Safe to call more than once. */
 void reverie_win_init(void);
 
+/* Append a timestamped line to reverie.log next to the executable. */
+void reverie_log_write(const char *message);
+
+/* Native open/save dialogs. `pattern` is a glob such as "*.txt"; an "All files"
+ * option is always added. Return the chosen path (UTF-8) or "" if cancelled.
+ * These block until the user responds. */
+const char *reverie_dialog_open(const char *pattern);
+const char *reverie_dialog_save(const char *pattern);
+
 /* Navigation policy: only these hosts (plus data:/about:/blob:) may be loaded.
  * "reverie.local" and "localhost" are allowed by default; everything else is
  * blocked. Hosts are matched case-insensitively, ignoring a port. */
