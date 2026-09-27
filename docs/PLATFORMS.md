@@ -36,9 +36,27 @@ the host's declarations and drops the rest before semantic analysis:
     @cfg(macos)   module reverie_macos   { ... }
     @cfg(linux)   module reverie_linux   { ... }
 
-This replaced generating a single-import `platform.reo` per target. macOS and
-Linux still need their C shims (Cocoa/WKWebView, GTK/WebKitGTK) before they can
-link; the `.reo` backends are already in place.
+This replaced generating a single-import `platform.reo` per target. macOS still
+needs its C shim (Cocoa/WKWebView) before it can link; the Linux shim exists (see
+below).
+
+### Linux backend
+
+`shim/linux/reverie_gtk.c` implements the `reverie_linux_*` ABI over GTK 3 and
+WebKit2GTK. Because WebKit cannot intercept `https://reverie.local`, the shim
+rewrites that URL to the internal `reverie://` scheme and serves files from the
+mapped asset folder via a registered URI-scheme handler. Page-to-native messages
+arrive through `window.webkit.messageHandlers.reverie`; native-to-page messages
+call `window.__reverieReceive(...)`. The typed bridge in
+`packages/create-reverie/templates/_base/src/reverie.ts` targets both this and
+WebView2.
+
+Build with:
+
+    shim/linux/build.sh            # -> shim/linux/build/libreverie_gtk.a
+    scripts/build-app.sh           # -> src-reverie/target/release/app
+
+macOS and Linux packaging scripts live in `scripts/packager/`.
 
 ## Backends
 
@@ -46,7 +64,7 @@ link; the `.reo` backends are already in place.
 | --- | --- | --- | --- |
 | Windows | Win32 (`user32`) | WebView2 (COM, `WebView2Loader.dll`) | ✅ M0 + M1 |
 | macOS | Cocoa / AppKit | WKWebView | skeleton (`.reo` API in place; C shim TODO) |
-| Linux | GTK | WebKitGTK | skeleton (`.reo` API in place; C shim TODO) |
+| Linux | GTK 3 | WebKit2GTK 4.1 (4.0 fallback) | shim written (`shim/linux/`, untested on a real host) |
 
 Cross-compiling and testing macOS/Linux requires those hosts (and their system
 libraries); CI must build each on its own runner, as RingEcho already does.
@@ -68,7 +86,7 @@ Runtime features, roughly in dependency order:
 - [~] Installers and resource embedding (Windows: Inno `app-setup.exe`, MSIX `app.msix`; macOS/Linux scripts in `scripts/packager/`)
 - [ ] Auto-update and code signing
 - [x] Logging (`reverie.log`); telemetry not planned
-- [~] macOS and Linux backends (`.reo` API in place, C shims pending)
+- [~] macOS and Linux backends (Linux shim written, untested; macOS `.reo` API in place, C shim pending)
 
 ## RingEcho prerequisites
 

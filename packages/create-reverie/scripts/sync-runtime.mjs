@@ -25,6 +25,8 @@ mkdirSync(shimDest, { recursive: true });
 for (const name of ["reverie_webview2.c", "reverie_webview2.h", "build.ps1"]) {
     copyFileSync(join(REPO_ROOT, "shim", name), join(shimDest, name));
 }
+// Linux shim sources + build script.
+cpSync(join(REPO_ROOT, "shim", "linux"), join(shimDest, "linux"), { recursive: true });
 console.log(`synced shim -> ${shimDest}`);
 
 // Build + packaging scripts (everything except this sync script).
