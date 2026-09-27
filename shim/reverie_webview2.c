@@ -288,6 +288,21 @@ static HRESULT STDMETHODCALLTYPE nav_invoke(ICoreWebView2NavigationStartingEvent
     return S_OK;
 }
 
+/* Resolve a possibly relative asset folder against the executable's directory,
+ * so a packaged app finds its bundled frontend regardless of the install path. */
+static void resolve_dir(const char *dir, wchar_t *out, size_t cap) {
+    wchar_t wd[1024];
+    utf8_to_wide(dir, wd, 1024);
+    int absolute = (dir && dir[0] &&
+                    (dir[0] == '\\' || dir[0] == '/' || dir[1] == ':'));
+    if (absolute || !dir || !*dir) { swprintf(out, cap, L"%ls", wd); return; }
+    wchar_t exe[MAX_PATH];
+    if (GetModuleFileNameW(NULL, exe, MAX_PATH) == 0) { swprintf(out, cap, L"%ls", wd); return; }
+    wchar_t *slash = wcsrchr(exe, L'\\');
+    if (slash) *slash = L'\0';
+    swprintf(out, cap, L"%ls\\%ls", exe, wd);
+}
+
 static int apply_folder(ReverieWindow *w, const char *host, const char *dir) {
     if (!w || !w->webview) { set_error("webview not ready"); return -1; }
     ICoreWebView2_3 *webview3 = NULL;
@@ -295,7 +310,7 @@ static int apply_folder(ReverieWindow *w, const char *host, const char *dir) {
     if (FAILED(hr) || !webview3) { set_error("ICoreWebView2_3 unavailable"); return -1; }
     wchar_t wide_host[256], wide_dir[1024];
     utf8_to_wide(host, wide_host, 256);
-    utf8_to_wide(dir, wide_dir, 1024);
+    resolve_dir(dir, wide_dir, 1024);
     hr = webview3->lpVtbl->SetVirtualHostNameToFolderMapping(
         webview3, wide_host, wide_dir, COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
     webview3->lpVtbl->Release(webview3);

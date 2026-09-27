@@ -52,7 +52,15 @@ if (Test-Path $genConfig) { & $genConfig -Dev:$Dev }
 & $Rev build (Join-Path $srcReve 'main.reo') --lib-dir (Join-Path $shim 'build') --link reverie_webview2 --link ole32 --link comdlg32 -o (Join-Path $outDir "$Name.exe")
 if ($LASTEXITCODE -ne 0) { throw 'rev build failed' }
 
-# 5. Runtime DLLs next to the executable.
+# 5. Frontend build output (for the reverie.local asset host), if present.
+$dist = Join-Path $appRoot 'dist'
+if (Test-Path $dist) {
+    $distOut = Join-Path $outDir 'dist'
+    if (Test-Path $distOut) { Remove-Item -LiteralPath $distOut -Recurse -Force }
+    Copy-Item -LiteralPath $dist -Destination $distOut -Recurse -Force
+}
+
+# 6. Runtime DLLs next to the executable.
 Copy-Item -LiteralPath (Join-Path $shim 'webview2/x64/WebView2Loader.dll') -Destination (Join-Path $outDir 'WebView2Loader.dll') -Force
 $ccDir = Split-Path -Parent (Get-Command $CC).Source
 $winpthread = Join-Path $ccDir 'libwinpthread-1.dll'

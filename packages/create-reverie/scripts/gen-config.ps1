@@ -38,9 +38,9 @@ $assetHost = 'reverie.local'
 if ($json.asset.host) { $assetHost = $json.asset.host }
 $assetFolder = 'dist'
 if ($json.asset.folder) { $assetFolder = $json.asset.folder }
-if (-not [System.IO.Path]::IsPathRooted($assetFolder)) {
-    $assetFolder = Join-Path $appRoot $assetFolder
-}
+# Kept as configured (usually relative). The runtime resolves a relative folder
+# against the executable's directory, so the same build works from any install
+# location.
 $assetFolder = ($assetFolder -replace '\\', '/')
 
 $hosts = @('reverie.local')
