@@ -1,3 +1,5 @@
+@cfg(windows)
+module reverie_windows_webview {
 // Reverie / Windows backend - WebView2 host bindings.
 //
 // Multi-window: control functions take the target window handle (hwnd).
@@ -113,4 +115,6 @@ fn reverie_webview_last_error() -> str {
 
 fn reverie_last_blocked() -> str {
     return reverie_webview_last_blocked();
+}
+
 }

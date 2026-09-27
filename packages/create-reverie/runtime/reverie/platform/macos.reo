@@ -1,0 +1,81 @@
+// Reverie / macOS backend skeleton (Cocoa + WKWebView).
+//
+// Not yet implemented. The shape mirrors the Windows backend and delegates all
+// OS work to a C shim (the Cocoa/WKWebView equivalent of
+// shim/reverie_webview2.c). The whole module is guarded by @cfg(macos), so it
+// is dropped when compiling for another host.
+
+@cfg(macos)
+module reverie_macos {
+    extern {
+        fn reverie_mac_init();
+        fn reverie_mac_log(message: str);
+        fn reverie_mac_create_window(class_name: str, title: str, width: i32, height: i32) -> u64;
+        fn reverie_mac_run_loop() -> i32;
+        fn reverie_mac_quit_after(hwnd: u64, ms: u32);
+        fn reverie_mac_allow_host(host: str);
+        fn reverie_mac_webview_open(hwnd: u64, url: str) -> i32;
+        fn reverie_mac_webview_state(hwnd: u64) -> i32;
+        fn reverie_mac_webview_send(hwnd: u64, message: str) -> i32;
+        fn reverie_mac_webview_poll(hwnd: u64) -> str;
+        fn reverie_mac_webview_set_folder(hwnd: u64, host: str, dir: str) -> i32;
+        fn reverie_mac_webview_navigate(hwnd: u64, url: str) -> i32;
+        fn reverie_mac_webview_on_message(handler: fn(str));
+        fn reverie_mac_webview_message_window() -> u64;
+        fn reverie_mac_webview_register_command(name: str, handler: fn(str));
+        fn reverie_mac_webview_stop(hwnd: u64);
+        fn reverie_mac_webview_error() -> str;
+        fn reverie_mac_webview_last_blocked() -> str;
+        fn reverie_mac_tray_add(hwnd: u64, tooltip: str) -> i32;
+        fn reverie_mac_tray_remove();
+        fn reverie_mac_dialog_open(pattern: str) -> str;
+        fn reverie_mac_dialog_save(pattern: str) -> str;
+    }
+
+    fn reverie_win_init() { reverie_mac_init(); }
+    fn reverie_init() { reverie_mac_init(); }
+    fn reverie_log(message: str) { reverie_mac_log(message); }
+    fn reverie_allow_host(host: str) { reverie_mac_allow_host(host); }
+
+    fn reverie_create_window(class_name: str, title: str, width: i32, height: i32,
+                             proc: fn(u64, u32, u64, u64) -> u64) -> u64 {
+        return reverie_mac_create_window(class_name, title, width, height);
+    }
+    fn reverie_run_loop() -> i32 { return reverie_mac_run_loop(); }
+    fn reverie_quit_after(hwnd: u64, ms: u32) { reverie_mac_quit_after(hwnd, ms); }
+    fn reverie_default_proc(hwnd: u64, msg: u32, wparam: u64, lparam: u64) -> u64 {
+        return reverie_mac_default_proc(hwnd, msg, wparam, lparam);
+    }
+    extern { fn reverie_mac_default_proc(hwnd: u64, msg: u32, wparam: u64, lparam: u64) -> u64; }
+
+    fn reverie_webview_open(hwnd: u64, url: str) -> i32 { return reverie_mac_webview_open(hwnd, url); }
+    fn reverie_webview_status(hwnd: u64) -> i32 { return reverie_mac_webview_state(hwnd); }
+    fn reverie_send(hwnd: u64, message: str) -> i32 { return reverie_mac_webview_send(hwnd, message); }
+    fn reverie_poll(hwnd: u64) -> str { return reverie_mac_webview_poll(hwnd); }
+    fn reverie_asset_folder(hwnd: u64, host: str, dir: str) -> i32 {
+        return reverie_mac_webview_set_folder(hwnd, host, dir);
+    }
+    fn reverie_navigate(hwnd: u64, url: str) -> i32 { return reverie_mac_webview_navigate(hwnd, url); }
+    fn reverie_on_message(handler: fn(str)) { reverie_mac_webview_on_message(handler); }
+    fn reverie_message_window() -> u64 { return reverie_mac_webview_message_window(); }
+    fn reverie_register_command(name: str, handler: fn(str)) {
+        reverie_mac_webview_register_command(name, handler);
+    }
+    fn reverie_webview_close(hwnd: u64) { reverie_mac_webview_stop(hwnd); }
+    fn reverie_webview_last_error() -> str { return reverie_mac_webview_error(); }
+    fn reverie_last_blocked() -> str { return reverie_mac_webview_last_blocked(); }
+
+    fn reverie_tray_show(hwnd: u64, tooltip: str) -> i32 { return reverie_mac_tray_add(hwnd, tooltip); }
+    fn reverie_tray_hide() { reverie_mac_tray_remove(); }
+    fn reverie_open_file(pattern: str) -> str { return reverie_mac_dialog_open(pattern); }
+    fn reverie_save_file(pattern: str) -> str { return reverie_mac_dialog_save(pattern); }
+
+    // Menu identifiers are Windows-specific; on macOS provide inert stubs.
+    fn reverie_wm_command() -> u32 { return 0; }
+    fn reverie_menu_bar() -> u64 { return 0; }
+    fn reverie_menu_popup() -> u64 { return 0; }
+    fn reverie_menu_item(menu: u64, id: u32, label: str) -> i32 { return 0; }
+    fn reverie_menu_submenu(bar: u64, popup: u64, label: str) -> i32 { return 0; }
+    fn reverie_menu_attach(hwnd: u64, menu: u64) -> i32 { return 0; }
+    fn reverie_menu_id(wparam: u64) -> u32 { return 0; }
+}

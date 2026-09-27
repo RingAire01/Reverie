@@ -1,3 +1,5 @@
+@cfg(windows)
+module reverie_windows_abi_structs {
 // Reverie / Windows backend - C-layout structs mirroring their Win32
 // counterparts. RingEcho emits these declarations verbatim, so the C compiler
 // computes the same offsets as <windows.h>.
@@ -30,4 +32,6 @@ struct Rect {
     top: i32,
     right: i32,
     bottom: i32,
+}
+
 }

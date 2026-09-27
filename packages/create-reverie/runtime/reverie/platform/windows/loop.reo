@@ -1,3 +1,5 @@
+@cfg(windows)
+module reverie_windows_loop {
 // Reverie / Windows backend - message loop.
 //
 // GetMessageA blocks until a message arrives; it returns 0 after
@@ -18,4 +20,6 @@ fn reverie_run_loop() -> i32 {
         DispatchMessageA(&msg);
     }
     return 0;
+}
+
 }

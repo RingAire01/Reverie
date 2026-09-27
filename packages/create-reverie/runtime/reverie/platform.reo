@@ -1,7 +1,9 @@
-// Reverie - host backend selection.
+// Reverie - host backends.
 //
-// Exactly one backend may be imported (RingEcho has no conditional
-// compilation yet), so this file is the single selection point. The
-// create-reverie scaffold and CI generate it per target; see PLATFORMS.md.
+// All backends are imported; each declares its public API inside an
+// `@cfg(<os>) module`, so RingEcho keeps only the host's declarations.
+// See PLATFORMS.md for the per-OS C shim each backend binds to.
 
 import "reverie/platform/windows"
+import "reverie/platform/macos"
+import "reverie/platform/linux"
