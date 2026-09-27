@@ -37,14 +37,14 @@ shim/
 ```
 
 The runtime is split into a platform-agnostic facade and per-OS backends;
-see [PLATFORMS.md](PLATFORMS.md) for the architecture and the Tauri parity
+see [docs/PLATFORMS.md](docs/PLATFORMS.md) for the architecture and the Tauri parity
 checklist. RingEcho has no namespaces: every imported declaration lands in one
 global scope, and imports resolve relative to the **entry file's** directory, so
 all import paths are written from `src/`. Public API names carry a `reverie_`
 prefix; the ABI layer keeps the exact Win32 names because they must match the C
 symbols.
 
-See [ROADMAP.md](ROADMAP.md) for the full milestone plan and the gap analysis
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the full milestone plan and the gap analysis
 (language prerequisites, runtime features, tooling, infrastructure).
 
 ## Scaffolding
