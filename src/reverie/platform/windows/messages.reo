@@ -6,3 +6,4 @@
 fn reverie_wm_destroy() -> u32 { return 2; }
 fn reverie_wm_close() -> u32 { return 16; }
 fn reverie_wm_timer() -> u32 { return 275; }
+fn reverie_wm_command() -> u32 { return 273; }

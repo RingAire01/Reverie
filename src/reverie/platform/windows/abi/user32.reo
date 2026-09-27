@@ -18,4 +18,11 @@ extern {
     fn IsWindow(hwnd: u64) -> i32;
     fn GetWindowRect(hwnd: u64, rect: &Rect) -> i32;
     fn GetWindowLongA(hwnd: u64, index: i32) -> i32;
+    fn CreateMenu() -> u64;
+    fn CreatePopupMenu() -> u64;
+    fn AppendMenuA(menu: u64, flags: u32, id: u64, item: str) -> i32;
+    fn SetMenu(hwnd: u64, menu: u64) -> i32;
+    fn GetMenu(hwnd: u64) -> u64;
+    fn GetMenuItemCount(menu: u64) -> i32;
+    fn DrawMenuBar(hwnd: u64) -> i32;
 }

@@ -18,7 +18,7 @@ Legend: ✅ done · 🚧 partial · ⬜ not started
 | Security: permissions | capabilities + per-command allowlist | ✅ registry is the allowlist | capability config later |
 | Security: isolation | per-window scope, no remote by default | ✅ `reverie_allow_host` + navigation policy | per-window allowlists later |
 | Config | `tauri.conf.json` + schema | ✅ `reverie.conf` generated into `config.reo` | JSON schema later |
-| Menus / tray | Menu/Tray APIs | ⬜ | Win32 menus; needs a command bridge |
+| Menus / tray | Menu/Tray APIs | 🚧 native menu bar + `WM_COMMAND` routing | tray icon pending |
 | Native dialogs | dialog plugin (open/save/message) | ✅ open/save via `GetOpenFileNameW` | message box later |
 | Updater | updater plugin (signed) | ⬜ | download + verify + swap, later |
 | Logging | log plugin | ✅ `reverie_log` -> `reverie.log` | plugin config later |

@@ -86,3 +86,36 @@ fn reverie_create_window(class_name: str, title: str, width: i32, height: i32,
 fn reverie_quit_after(hwnd: u64, ms: u32) {
     SetTimer(hwnd, 1, ms, 0);
 }
+
+// Menu bar. Build popups with reverie_menu_popup, add items with
+// reverie_menu_item, then attach to the window with reverie_menu_attach.
+// Selecting an item delivers WM_COMMAND (reverie_wm_command) with the id in the
+// low word of wparam.
+fn reverie_menu_bar() -> u64 {
+    return CreateMenu();
+}
+
+fn reverie_menu_popup() -> u64 {
+    return CreatePopupMenu();
+}
+
+// MF_STRING = 0: a normal item.
+fn reverie_menu_item(menu: u64, id: u32, label: str) -> i32 {
+    return AppendMenuA(menu, 0, id as u64, label);
+}
+
+// MF_POPUP = 0x10: a submenu.
+fn reverie_menu_submenu(bar: u64, popup: u64, label: str) -> i32 {
+    return AppendMenuA(bar, 16, popup, label);
+}
+
+fn reverie_menu_attach(hwnd: u64, menu: u64) -> i32 {
+    let result: i32 = SetMenu(hwnd, menu);
+    DrawMenuBar(hwnd);
+    return result;
+}
+
+// Menu id from a WM_COMMAND wparam (low word).
+fn reverie_menu_id(wparam: u64) -> u32 {
+    return (wparam & 65535) as u32;
+}
